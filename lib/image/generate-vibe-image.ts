@@ -1,17 +1,19 @@
 /**
  * Generate vibe static image: base PNG + footer overlay (masked wallet).
- * Uses node canvas to load "Solana Pill.png", draw footer, and write PNG.
- * Fast (no frame decode/encode). Base asset: public/media/Solana Pill.png
+ * Uses sharp (Vercel-friendly, no native deps). Base asset: public/media/Solana Pill.png
  */
 
 import { writeFileSync, mkdirSync, existsSync } from "fs";
 import path from "path";
+import sharp from "sharp";
 
 const BASE_IMAGE_PATH = path.join(process.cwd(), "public", "media", "Solana Pill.png");
 
 const FOOTER_LINE1 = "> received solana_vibes";
 const FOOTER_LINE2_PREFIX = "> verified by wallet ";
-const FOOTER_FONT = "16px monospace";
+const FOOTER_FONT_SIZE = 16;
+const PADDING = 12;
+const LINE_HEIGHT = 20;
 const FOOTER_COLOR = "#00ff00";
 
 export interface GenerateVibeImageOptions {
@@ -23,21 +25,12 @@ function ensureOutputDir(outputPath: string) {
   mkdirSync(path.dirname(outputPath), { recursive: true });
 }
 
-function drawFooter(
-  ctx: CanvasRenderingContext2D,
-  width: number,
-  height: number,
-  maskedWallet: string
-) {
-  const padding = 12;
-  const lineHeight = 20;
-  const y = height - lineHeight * 2 - padding;
-
-  ctx.font = FOOTER_FONT;
-  ctx.fillStyle = FOOTER_COLOR;
-  ctx.textBaseline = "top";
-  ctx.fillText(FOOTER_LINE1, padding, y);
-  ctx.fillText(FOOTER_LINE2_PREFIX + maskedWallet, padding, y + lineHeight);
+function escapeSvg(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 /**
@@ -47,34 +40,39 @@ export async function generateVibeImage(options: GenerateVibeImageOptions): Prom
   const { maskedWallet, outputPath } = options;
   if (existsSync(outputPath)) return;
 
-  let createCanvas: (w: number, h: number) => { getContext: (id: string) => CanvasRenderingContext2D | null; toBuffer: (mime: string) => Buffer };
-  let loadImage: (src: string) => Promise<{ width: number; height: number } & CanvasImageSource>;
-  try {
-    const canvasModule = require("canvas");
-    createCanvas = canvasModule.createCanvas;
-    loadImage = canvasModule.loadImage;
-  } catch {
-    throw new Error(
-      "Image generation requires the 'canvas' package (native deps). " +
-        "On macOS run: brew install pkg-config cairo pango libpng jpeg librsvg pixman " +
-        "then: npm install"
-    );
-  }
-
   ensureOutputDir(outputPath);
   const t0 = Date.now();
 
-  const img = await loadImage(BASE_IMAGE_PATH);
-  const width = img.width as number;
-  const height = img.height as number;
-  const canvas = createCanvas(width, height);
-  const ctx = canvas.getContext("2d");
-  if (!ctx) throw new Error("No canvas 2d context");
+  const image = sharp(BASE_IMAGE_PATH);
+  const meta = await image.metadata();
+  const width = meta.width ?? 0;
+  const height = meta.height ?? 0;
+  if (!width || !height) throw new Error("Invalid base image dimensions");
 
-  ctx.drawImage(img, 0, 0);
-  drawFooter(ctx, width, height, maskedWallet);
+  const footerHeight = LINE_HEIGHT * 2 + PADDING * 2;
+  const y1 = PADDING;
+  const y2 = PADDING + LINE_HEIGHT;
+  const line1Escaped = escapeSvg(FOOTER_LINE1);
+  const line2Escaped = escapeSvg(FOOTER_LINE2_PREFIX + maskedWallet);
 
-  const buf = canvas.toBuffer("image/png");
-  writeFileSync(outputPath, buf);
+  const svg = `
+<svg width="${width}" height="${footerHeight}" xmlns="http://www.w3.org/2000/svg">
+  <text x="${PADDING}" y="${y1 + FOOTER_FONT_SIZE}" font-family="monospace" font-size="${FOOTER_FONT_SIZE}" fill="${FOOTER_COLOR}">${line1Escaped}</text>
+  <text x="${PADDING}" y="${y2 + FOOTER_FONT_SIZE}" font-family="monospace" font-size="${FOOTER_FONT_SIZE}" fill="${FOOTER_COLOR}">${line2Escaped}</text>
+</svg>`;
+
+  const footerBuffer = Buffer.from(svg.trim());
+  const outBuffer = await image
+    .composite([
+      {
+        input: footerBuffer,
+        top: height - footerHeight,
+        left: 0,
+      },
+    ])
+    .png()
+    .toBuffer();
+
+  writeFileSync(outputPath, outBuffer);
   console.log(`[vibe/image] Written in ${Date.now() - t0}ms`);
 }
