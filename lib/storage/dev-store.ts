@@ -1,0 +1,48 @@
+/**
+ * Dev storage: JSON file on filesystem.
+ * TODO: Replace with Supabase (vibes table) and R2 or Supabase Storage for GIFs when moving to production.
+ */
+
+import { readFile, writeFile, mkdir } from "fs/promises";
+import path from "path";
+import type { VibeRecord, IVibeStore } from "./types";
+
+const DATA_DIR = path.join(process.cwd(), "data");
+const VIBES_FILE = path.join(DATA_DIR, "vibes.json");
+
+async function ensureDataDir() {
+  await mkdir(DATA_DIR, { recursive: true });
+}
+
+async function readVibes(): Promise<VibeRecord[]> {
+  await ensureDataDir();
+  try {
+    const raw = await readFile(VIBES_FILE, "utf-8");
+    return JSON.parse(raw);
+  } catch {
+    return [];
+  }
+}
+
+async function writeVibes(vibes: VibeRecord[]) {
+  await ensureDataDir();
+  await writeFile(VIBES_FILE, JSON.stringify(vibes, null, 2), "utf-8");
+}
+
+export const devVibeStore: IVibeStore = {
+  async create(vibe) {
+    const vibes = await readVibes();
+    const record: VibeRecord = {
+      ...vibe,
+      createdAt: new Date().toISOString(),
+    };
+    vibes.push(record);
+    await writeVibes(vibes);
+    return record;
+  },
+
+  async getById(id: string) {
+    const vibes = await readVibes();
+    return vibes.find((v) => v.id === id) ?? null;
+  },
+};

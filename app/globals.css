@@ -1,0 +1,18 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #0a0a0a;
+  --foreground: #e5e5e5;
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+}
+
+/* Wallet adapter modal overrides if needed */
+.wallet-adapter-button {
+  font-size: 0.875rem;
+}
