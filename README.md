@@ -1,6 +1,6 @@
 # Solana Vibes
 
-Send an anonymous, wallet-verified “Solana vibe” to someone on X (Twitter). The sender’s identity is anonymous except for a masked Solana wallet address embedded in an animated GIF that unfurls when the link is posted on X.
+Send an anonymous, wallet-verified “Solana vibe” to someone on X (Twitter). Trigger deploy. The sender’s identity is anonymous except for a masked Solana wallet address embedded in an animated GIF that unfurls when the link is posted on X.
 
 ## Run locally
 
