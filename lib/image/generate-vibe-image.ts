@@ -8,7 +8,6 @@ import { writeFileSync, mkdirSync, existsSync } from "fs";
 import path from "path";
 
 const BASE_IMAGE_PATH = path.join(process.cwd(), "public", "media", "Solana Pill.png");
-const VIBES_DIR = path.join(process.cwd(), "public", "media", "vibes");
 
 const FOOTER_LINE1 = "> received solana_vibes";
 const FOOTER_LINE2_PREFIX = "> verified by wallet ";
@@ -20,8 +19,8 @@ export interface GenerateVibeImageOptions {
   outputPath: string;
 }
 
-function ensureVibesDir() {
-  mkdirSync(VIBES_DIR, { recursive: true });
+function ensureOutputDir(outputPath: string) {
+  mkdirSync(path.dirname(outputPath), { recursive: true });
 }
 
 function drawFooter(
@@ -62,7 +61,7 @@ export async function generateVibeImage(options: GenerateVibeImageOptions): Prom
     );
   }
 
-  ensureVibesDir();
+  ensureOutputDir(outputPath);
   const t0 = Date.now();
 
   const img = await loadImage(BASE_IMAGE_PATH);

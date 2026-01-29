@@ -7,7 +7,9 @@ import { readFile, writeFile, mkdir } from "fs/promises";
 import path from "path";
 import type { VibeRecord, IVibeStore } from "./types";
 
-const DATA_DIR = path.join(process.cwd(), "data");
+// On Vercel the app filesystem is read-only; use /tmp (ephemeral, not shared across instances).
+const DATA_DIR =
+  process.env.VERCEL === "1" ? path.join("/tmp", "data") : path.join(process.cwd(), "data");
 const VIBES_FILE = path.join(DATA_DIR, "vibes.json");
 
 async function ensureDataDir() {

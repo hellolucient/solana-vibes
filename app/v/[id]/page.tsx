@@ -4,13 +4,21 @@ import { devVibeStore } from "@/lib/storage/dev-store";
 
 const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
 
+function getImageUrl(id: string): string {
+  // On Vercel images are served from /tmp via API; locally from static /media/vibes.
+  if (process.env.VERCEL === "1") {
+    return baseUrl ? `${baseUrl}/api/vibe/image/${id}` : `/api/vibe/image/${id}`;
+  }
+  return baseUrl ? `${baseUrl}/media/vibes/${id}.png` : `/media/vibes/${id}.png`;
+}
+
 export async function generateMetadata({
   params,
 }: {
   params: Promise<{ id: string }>;
 }): Promise<Metadata> {
   const { id } = await params;
-  const imageUrl = baseUrl ? `${baseUrl}/media/vibes/${id}.png` : `/media/vibes/${id}.png`;
+  const imageUrl = getImageUrl(id);
   return {
     title: " ",
     description: " ",
@@ -24,8 +32,7 @@ export default async function VibePage({ params }: { params: Promise<{ id: strin
   const vibe = await devVibeStore.getById(id);
   if (!vibe) notFound();
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
-  const imageUrl = baseUrl ? `${baseUrl}/media/vibes/${id}.png` : `/media/vibes/${id}.png`;
+  const imageUrl = getImageUrl(id);
 
   return (
     <main className="min-h-screen bg-black flex flex-col items-center justify-center p-4">

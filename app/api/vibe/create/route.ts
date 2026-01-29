@@ -38,7 +38,11 @@ export async function POST(req: NextRequest) {
 
   const id = generateVibeId();
   const maskedWallet = maskWallet(senderWallet);
-  const vibesDir = path.join(process.cwd(), "public", "media", "vibes");
+  // On Vercel the app filesystem is read-only; write images to /tmp (ephemeral).
+  const vibesDir =
+    process.env.VERCEL === "1"
+      ? path.join("/tmp", "vibes")
+      : path.join(process.cwd(), "public", "media", "vibes");
   const imagePath = path.join(vibesDir, `${id}.png`);
 
   try {
