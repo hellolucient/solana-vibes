@@ -13,6 +13,7 @@
     "@metaplex-foundation/umi": "^1.4.1",
     "@metaplex-foundation/umi-bundle-defaults": "^1.4.1",
     "@metaplex-foundation/umi-web3js-adapters": "^1.4.1",
+    "@resvg/resvg-js": "^2.6.2",
     "@solana/wallet-adapter-base": "^0.9.23",
     "@solana/wallet-adapter-react": "^0.15.35",
     "@solana/wallet-adapter-react-ui": "^0.9.35",
@@ -28,6 +29,7 @@
     "oauth-1.0a": "^2.2.6",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "satori": "^0.19.1",
     "sharp": "^0.33.5"
   },
   "optionalDependencies": {

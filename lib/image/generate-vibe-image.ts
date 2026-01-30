@@ -1,6 +1,7 @@
 /**
  * Generate vibe static image: base PNG + text overlays.
- * Uses sharp (Vercel-friendly, no native deps). Base asset: public/media/vibes4b.png
+ * Uses satori + resvg-js for reliable text rendering on Vercel.
+ * Base asset: public/media/vibes4b.png
  * 
  * Text elements rendered on the image:
  * - Top-left: Faint binary decoration (101010...)
@@ -12,11 +13,14 @@
  *   - "> for @handle"
  */
 
-import { writeFileSync, mkdirSync } from "fs";
+import { writeFileSync, mkdirSync, readFileSync } from "fs";
 import path from "path";
 import sharp from "sharp";
+import satori from "satori";
+import { Resvg } from "@resvg/resvg-js";
 
 const BASE_IMAGE_PATH = path.join(process.cwd(), "public", "media", "vibes4b.png");
+const FONT_PATH = path.join(process.cwd(), "lib", "fonts", "JetBrainsMono-Regular.ttf");
 
 // Styling constants
 const FONT_SIZE = 14;
@@ -25,6 +29,15 @@ const PADDING = 16;
 const LINE_HEIGHT = 18;
 const FOOTER_COLOR = "#00ff00";
 const BINARY_COLOR = "rgba(0, 255, 0, 0.06)"; // Very faint green for binary decoration
+
+// Cache the font data
+let fontData: Buffer | null = null;
+function getFontData(): Buffer {
+  if (!fontData) {
+    fontData = readFileSync(FONT_PATH);
+  }
+  return fontData;
+}
 
 export interface GenerateVibeImageOptions {
   maskedWallet: string;
@@ -38,20 +51,12 @@ function ensureOutputDir(outputPath: string) {
   mkdirSync(path.dirname(outputPath), { recursive: true });
 }
 
-function escapeSvg(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
 /**
  * Mask a mint address for display: first 4 + … + last 4
  */
 function maskMintAddress(address: string): string {
   if (address.length <= 12) return address;
-  return `${address.slice(0, 4)}…${address.slice(-4)}`;
+  return `${address.slice(0, 4)}...${address.slice(-4)}`;
 }
 
 /**
@@ -60,6 +65,131 @@ function maskMintAddress(address: string): string {
 function formatTimestamp(isoString: string): string {
   const date = new Date(isoString);
   return date.toISOString().replace("T", " ").replace(/\.\d+Z$/, " UTC");
+}
+
+/**
+ * Generate footer text overlay using satori.
+ */
+async function generateFooterOverlay(
+  width: number,
+  height: number,
+  lines: string[]
+): Promise<Buffer> {
+  const font = getFontData();
+  
+  // Satori accepts this object format at runtime (JSX-like structure)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const element: any = {
+    type: "div",
+    props: {
+      style: {
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "flex-end",
+        width: "100%",
+        height: "100%",
+        padding: PADDING,
+        fontFamily: "JetBrains Mono",
+      },
+      children: lines.map((line) => ({
+        type: "div",
+        props: {
+          style: {
+            color: FOOTER_COLOR,
+            fontSize: FONT_SIZE,
+            lineHeight: `${LINE_HEIGHT}px`,
+          },
+          children: line || " ", // Use space for empty lines to maintain height
+        },
+      })),
+    },
+  };
+
+  const svg = await satori(element, {
+    width,
+    height,
+    fonts: [
+      {
+        name: "JetBrains Mono",
+        data: font,
+        weight: 400,
+        style: "normal",
+      },
+    ],
+  });
+
+  const resvg = new Resvg(svg, {
+    background: "transparent",
+    fitTo: {
+      mode: "width",
+      value: width,
+    },
+  });
+  
+  return resvg.render().asPng();
+}
+
+/**
+ * Generate binary decoration overlay using satori.
+ */
+async function generateBinaryOverlay(width: number, height: number): Promise<Buffer> {
+  const font = getFontData();
+  
+  const binaryLines = [
+    "101010110010101101001011",
+    "010110101001101010110101",
+    "110101010110010101101001",
+  ];
+
+  // Satori accepts this object format at runtime (JSX-like structure)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const element: any = {
+    type: "div",
+    props: {
+      style: {
+        display: "flex",
+        flexDirection: "column",
+        width: "100%",
+        height: "100%",
+        padding: PADDING,
+        fontFamily: "JetBrains Mono",
+      },
+      children: binaryLines.map((line) => ({
+        type: "div",
+        props: {
+          style: {
+            color: BINARY_COLOR,
+            fontSize: FONT_SIZE_BINARY,
+            lineHeight: `${FONT_SIZE_BINARY + 2}px`,
+          },
+          children: line,
+        },
+      })),
+    },
+  };
+
+  const svg = await satori(element, {
+    width,
+    height,
+    fonts: [
+      {
+        name: "JetBrains Mono",
+        data: font,
+        weight: 400,
+        style: "normal",
+      },
+    ],
+  });
+
+  const resvg = new Resvg(svg, {
+    background: "transparent",
+    fitTo: {
+      mode: "width",
+      value: width,
+    },
+  });
+  
+  return resvg.render().asPng();
 }
 
 /**
@@ -94,38 +224,13 @@ export async function generateVibeImage(options: GenerateVibeImageOptions): Prom
   ];
 
   const footerHeight = LINE_HEIGHT * footerLines.length + PADDING * 2;
+  const binaryHeight = (FONT_SIZE_BINARY + 2) * 3 + PADDING * 2;
 
-  // Create footer SVG overlay
-  const footerSvg = `
-<svg width="${width}" height="${footerHeight}" xmlns="http://www.w3.org/2000/svg">
-  ${footerLines
-    .map(
-      (line, i) =>
-        `<text x="${PADDING}" y="${PADDING + (i + 1) * LINE_HEIGHT - 4}" font-family="monospace" font-size="${FONT_SIZE}" fill="${FOOTER_COLOR}">${escapeSvg(line)}</text>`
-    )
-    .join("\n  ")}
-</svg>`;
-
-  // Create binary decoration SVG overlay (top-left area, very faint)
-  const binaryLines = [
-    "101010110010101101001011",
-    "010110101001101010110101",
-    "110101010110010101101001",
-  ];
-  const binaryLineHeight = FONT_SIZE_BINARY + 2;
-  const binaryHeight = binaryLineHeight * binaryLines.length + PADDING * 2;
-  const binarySvg = `
-<svg width="${width}" height="${binaryHeight}" xmlns="http://www.w3.org/2000/svg">
-  ${binaryLines
-    .map(
-      (line, i) =>
-        `<text x="${PADDING}" y="${PADDING + (i + 1) * binaryLineHeight}" font-family="monospace" font-size="${FONT_SIZE_BINARY}" fill="${BINARY_COLOR}">${line}</text>`
-    )
-    .join("\n  ")}
-</svg>`;
-
-  const footerBuffer = Buffer.from(footerSvg.trim());
-  const binaryBuffer = Buffer.from(binarySvg.trim());
+  // Generate overlays using satori
+  const [footerBuffer, binaryBuffer] = await Promise.all([
+    generateFooterOverlay(width, footerHeight, footerLines),
+    generateBinaryOverlay(width, binaryHeight),
+  ]);
 
   const outBuffer = await image
     .composite([
@@ -183,38 +288,13 @@ export async function generateVibeImageBuffer(
   ];
 
   const footerHeight = LINE_HEIGHT * footerLines.length + PADDING * 2;
+  const binaryHeight = (FONT_SIZE_BINARY + 2) * 3 + PADDING * 2;
 
-  // Create footer SVG overlay
-  const footerSvg = `
-<svg width="${width}" height="${footerHeight}" xmlns="http://www.w3.org/2000/svg">
-  ${footerLines
-    .map(
-      (line, i) =>
-        `<text x="${PADDING}" y="${PADDING + (i + 1) * LINE_HEIGHT - 4}" font-family="monospace" font-size="${FONT_SIZE}" fill="${FOOTER_COLOR}">${escapeSvg(line)}</text>`
-    )
-    .join("\n  ")}
-</svg>`;
-
-  // Create binary decoration SVG overlay (top-left area, very faint)
-  const binaryLines = [
-    "101010110010101101001011",
-    "010110101001101010110101",
-    "110101010110010101101001",
-  ];
-  const binaryLineHeight = FONT_SIZE_BINARY + 2;
-  const binaryHeight = binaryLineHeight * binaryLines.length + PADDING * 2;
-  const binarySvg = `
-<svg width="${width}" height="${binaryHeight}" xmlns="http://www.w3.org/2000/svg">
-  ${binaryLines
-    .map(
-      (line, i) =>
-        `<text x="${PADDING}" y="${PADDING + (i + 1) * binaryLineHeight}" font-family="monospace" font-size="${FONT_SIZE_BINARY}" fill="${BINARY_COLOR}">${line}</text>`
-    )
-    .join("\n  ")}
-</svg>`;
-
-  const footerBuffer = Buffer.from(footerSvg.trim());
-  const binaryBuffer = Buffer.from(binarySvg.trim());
+  // Generate overlays using satori
+  const [footerBuffer, binaryBuffer] = await Promise.all([
+    generateFooterOverlay(width, footerHeight, footerLines),
+    generateBinaryOverlay(width, binaryHeight),
+  ]);
 
   const outBuffer = await image
     .composite([
