@@ -13,20 +13,28 @@ import {
   generateSigner,
   Umi,
   TransactionBuilder,
-  RpcConfirmTransactionResult,
 } from "@metaplex-foundation/umi";
 import { base58 } from "@metaplex-foundation/umi/serializers";
 import { getUmi } from "./umi";
 
 /**
- * Send a transaction and confirm it using blockhash strategy (not WebSockets).
+ * Sleep helper for polling.
+ */
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Send a transaction and confirm it using HTTP polling (not WebSockets).
  * This is required for Vercel/serverless environments where WebSocket
  * subscriptions don't work properly.
  */
 async function sendAndConfirmWithPolling(
   umi: Umi,
-  builder: TransactionBuilder
-): Promise<{ signature: Uint8Array; result: RpcConfirmTransactionResult }> {
+  builder: TransactionBuilder,
+  maxRetries = 60,
+  retryDelayMs = 500
+): Promise<{ signature: Uint8Array }> {
   // Build, sign, and send the transaction
   const signedTx = await builder.buildAndSign(umi);
   const signature = await umi.rpc.sendTransaction(signedTx);
@@ -34,20 +42,28 @@ async function sendAndConfirmWithPolling(
   const signatureStr = base58.deserialize(signature)[0];
   console.log(`[TX] Sent transaction: ${signatureStr}`);
   
-  // Get blockhash for confirmation strategy
-  const blockhash = await umi.rpc.getLatestBlockhash();
-  
-  // Confirm using blockhash strategy (polls internally, no WebSocket)
-  const result = await umi.rpc.confirmTransaction(signature, {
-    strategy: { type: "blockhash", ...blockhash },
-  });
-  
-  if (result.value.err) {
-    throw new Error(`Transaction failed: ${JSON.stringify(result.value.err)}`);
+  // Poll for confirmation using getSignatureStatuses (HTTP, not WebSocket)
+  for (let i = 0; i < maxRetries; i++) {
+    const statuses = await umi.rpc.getSignatureStatuses([signature]);
+    const status = statuses[0];
+    
+    if (status) {
+      if (status.err) {
+        throw new Error(`Transaction failed: ${JSON.stringify(status.err)}`);
+      }
+      
+      // Check if confirmed or finalized
+      if (status.confirmationStatus === "confirmed" || status.confirmationStatus === "finalized") {
+        console.log(`[TX] Confirmed with status: ${status.confirmationStatus}`);
+        return { signature };
+      }
+    }
+    
+    // Wait before polling again
+    await sleep(retryDelayMs);
   }
   
-  console.log(`[TX] Transaction confirmed`);
-  return { signature, result };
+  throw new Error(`Transaction confirmation timed out after ${maxRetries * retryDelayMs}ms`);
 }
 
 /**
@@ -88,15 +104,14 @@ export async function mintVibe(params: {
   });
 
   try {
-    const result = await sendAndConfirmWithPolling(umi, builder);
-    const signature = Buffer.from(result.signature).toString("base64");
+    const { signature } = await sendAndConfirmWithPolling(umi, builder);
+    const signatureB64 = Buffer.from(signature).toString("base64");
 
-    console.log(`[MintVibe] Asset created: ${assetSigner.publicKey}, sig: ${signature}`);
-    console.log(`[MintVibe] Transaction result:`, JSON.stringify(result.result, null, 2));
+    console.log(`[MintVibe] Asset created: ${assetSigner.publicKey}, sig: ${signatureB64}`);
 
     return {
       mintAddress: assetSigner.publicKey.toString(),
-      signature,
+      signature: signatureB64,
     };
   } catch (e) {
     console.error(`[MintVibe] Transaction failed:`, e);
