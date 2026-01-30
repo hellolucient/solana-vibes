@@ -5,25 +5,65 @@
  * 1. Create asset with authority as owner (vault)
  * 2. Asset is held until claimed
  * 3. On claim, transfer to recipient wallet
+ * 
+ * Note: Uses polling-based confirmation instead of WebSocket subscriptions
+ * for compatibility with Vercel's serverless environment.
  */
 
 import {
-  create,
   fetchAssetV1,
   transfer,
   update,
   AssetV1,
 } from "@metaplex-foundation/mpl-core";
 import {
-  generateSigner,
   publicKey,
-  TransactionBuilderSendAndConfirmOptions,
+  Umi,
+  TransactionBuilder,
+  RpcConfirmTransactionResult,
 } from "@metaplex-foundation/umi";
+import { base58 } from "@metaplex-foundation/umi/serializers";
 import { getUmi } from "./umi";
 
-const TX_OPTIONS: TransactionBuilderSendAndConfirmOptions = {
-  confirm: { commitment: "confirmed" },
-};
+/**
+ * Send a transaction and confirm it using polling (not WebSockets).
+ * This is required for Vercel/serverless environments where WebSocket
+ * subscriptions don't work properly.
+ */
+async function sendAndConfirmWithPolling(
+  umi: Umi,
+  builder: TransactionBuilder,
+  maxRetries = 30,
+  retryDelayMs = 1000
+): Promise<{ signature: Uint8Array; result: RpcConfirmTransactionResult }> {
+  // Build, sign, and send the transaction
+  const signedTx = await builder.buildAndSign(umi);
+  const signature = await umi.rpc.sendTransaction(signedTx);
+  
+  const signatureStr = base58.deserialize(signature)[0];
+  console.log(`[TX] Sent transaction: ${signatureStr}`);
+  
+  // Poll for confirmation
+  for (let i = 0; i < maxRetries; i++) {
+    const result = await umi.rpc.confirmTransaction(signature, {
+      strategy: { type: "blockhash", ...(await umi.rpc.getLatestBlockhash()) },
+    });
+    
+    if (result.value.err) {
+      throw new Error(`Transaction failed: ${JSON.stringify(result.value.err)}`);
+    }
+    
+    if (result.value.confirmationStatus === "confirmed" || result.value.confirmationStatus === "finalized") {
+      console.log(`[TX] Confirmed with status: ${result.value.confirmationStatus}`);
+      return { signature, result };
+    }
+    
+    // Wait before polling again
+    await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
+  }
+  
+  throw new Error(`Transaction confirmation timed out after ${maxRetries * retryDelayMs}ms`);
+}
 
 /**
  * Sleep for a given number of milliseconds.
@@ -75,7 +115,7 @@ export async function updateVibeMetadata(
     uri: newUri,
   });
 
-  const result = await builder.sendAndConfirm(umi, TX_OPTIONS);
+  const result = await sendAndConfirmWithPolling(umi, builder);
   const signature = Buffer.from(result.signature).toString("base64");
 
   console.log(`[Mint] Metadata updated, sig: ${signature}`);
@@ -105,7 +145,7 @@ export async function transferVibeToClaimer(
     newOwner,
   });
 
-  const result = await builder.sendAndConfirm(umi, TX_OPTIONS);
+  const result = await sendAndConfirmWithPolling(umi, builder);
   const signature = Buffer.from(result.signature).toString("base64");
 
   console.log(`[Mint] Transfer complete, sig: ${signature}`);
