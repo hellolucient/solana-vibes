@@ -3,16 +3,98 @@
 @tailwind utilities;
 
 :root {
-  --background: #0a0a0a;
-  --foreground: #e5e5e5;
+  --background: #050505;
+  --foreground: #ffffff;
+  --vibe-purple: #9945FF;
+  --vibe-teal: #14F195;
+  --vibe-blue: #00D4FF;
 }
 
 body {
   color: var(--foreground);
   background: var(--background);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
-/* Wallet adapter modal overrides if needed */
+/* Hide default wallet adapter button styles */
 .wallet-adapter-button {
-  font-size: 0.875rem;
+  display: none !important;
+}
+
+/* Custom button styling */
+.btn-connect-wallet {
+  background: linear-gradient(90deg, #120a1a 0%, #0a1210 100%);
+  border: 1px solid rgba(153, 69, 255, 0.3);
+  transition: all 0.3s ease;
+}
+
+.btn-connect-wallet:hover {
+  background: linear-gradient(90deg, #1a0f24 0%, #0d1815 100%);
+  border-color: rgba(153, 69, 255, 0.5);
+  box-shadow: 0 0 10px rgba(153, 69, 255, 0.1);
+}
+
+.btn-connect-x {
+  background: #080808;
+  border: 1px solid #1a1a1a;
+  transition: all 0.3s ease;
+}
+
+.btn-connect-x:hover {
+  border-color: #252525;
+  background: #0c0c0c;
+}
+
+.btn-send-vibe {
+  background: linear-gradient(90deg, #150d1f 0%, #0a1210 100%);
+  border: 1px solid rgba(153, 69, 255, 0.3);
+  transition: all 0.3s ease;
+}
+
+.btn-send-vibe:hover:not(:disabled) {
+  background: linear-gradient(90deg, #1c1128 0%, #0d1815 100%);
+  border-color: rgba(20, 241, 149, 0.4);
+  box-shadow: 0 0 15px rgba(153, 69, 255, 0.1), 0 0 15px rgba(20, 241, 149, 0.1);
+  transform: translateY(-1px);
+}
+
+.btn-send-vibe:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Input styling */
+.input-vibe {
+  background: #080808;
+  border: 1px solid #1a1a1a;
+  transition: all 0.3s ease;
+}
+
+.input-vibe:focus {
+  border-color: #252525;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(20, 241, 149, 0.05);
+}
+
+.input-vibe::placeholder {
+  color: #3a3a3a;
+}
+
+
+/* Success card styling */
+.success-card {
+  background: linear-gradient(135deg, rgba(20, 241, 149, 0.1) 0%, rgba(153, 69, 255, 0.1) 100%);
+  border: 1px solid rgba(20, 241, 149, 0.2);
+}
+
+/* Post to X button */
+.btn-post-x {
+  background: #000000;
+  border: 1px solid #333;
+  transition: all 0.3s ease;
+}
+
+.btn-post-x:hover {
+  background: #111;
+  border-color: #444;
 }

@@ -1,23 +1,64 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
-import dynamic from "next/dynamic";
+import { useWalletModal } from "@solana/wallet-adapter-react-ui";
 
-// Dynamically import WalletMultiButton with SSR disabled to prevent hydration errors
-const WalletMultiButton = dynamic(
-  async () => (await import("@solana/wallet-adapter-react-ui")).WalletMultiButton,
-  { ssr: false }
+// Phantom logo SVG component
+const PhantomLogo = () => (
+  <svg width="20" height="20" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect width="128" height="128" rx="26.8387" fill="url(#paint0_linear)"/>
+    <path d="M110.584 64.9142H99.142C99.142 41.7651 80.173 23 56.7724 23C33.6612 23 14.8716 41.3057 14.4118 64.0583C13.936 87.5493 35.8327 107.727 59.7951 104.934C70.4803 103.702 80.3726 98.5837 87.5775 90.5735L103.092 73.6447C107.779 68.5434 114.902 64.9142 110.584 64.9142Z" fill="url(#paint1_linear)"/>
+    <circle cx="40.7997" cy="58.4997" r="8.46667" fill="white"/>
+    <circle cx="67.5997" cy="58.4997" r="8.46667" fill="white"/>
+    <defs>
+      <linearGradient id="paint0_linear" x1="64" y1="0" x2="64" y2="128" gradientUnits="userSpaceOnUse">
+        <stop stopColor="#534BB1"/>
+        <stop offset="1" stopColor="#551BF9"/>
+      </linearGradient>
+      <linearGradient id="paint1_linear" x1="64" y1="23" x2="64" y2="105" gradientUnits="userSpaceOnUse">
+        <stop stopColor="white"/>
+        <stop offset="1" stopColor="white" stopOpacity="0.82"/>
+      </linearGradient>
+    </defs>
+  </svg>
+);
+
+// X (Twitter) logo SVG component
+const XLogo = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+  </svg>
+);
+
+// Static vibe image component
+const VibeImage = () => (
+  <div className="my-8 flex justify-center">
+    <img 
+      src="/media/vibes4b.png" 
+      alt="Solana Vibes" 
+      className="w-full max-w-sm h-auto opacity-90"
+    />
+  </div>
+);
+
+// Check icon for connected state
+const CheckIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="20 6 9 17 4 12"></polyline>
+  </svg>
 );
 
 export default function HomePage() {
-  const { publicKey, connected } = useWallet();
+  const { publicKey, connected, disconnect } = useWallet();
+  const { setVisible } = useWalletModal();
   const [xConnected, setXConnected] = useState<{ username: string | null; needsRefresh?: boolean } | null>(null);
   const [targetHandle, setTargetHandle] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [created, setCreated] = useState<{ vibeId: string; vibeUrl: string; mintAddress: string } | null>(null);
   const [oauthError, setOauthError] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   // Check X connection status and URL errors once on mount
   useEffect(() => {
@@ -50,6 +91,14 @@ export default function HomePage() {
     
     return () => { cancelled = true; };
   }, []);
+
+  const handleConnectWallet = () => {
+    if (connected) {
+      disconnect();
+    } else {
+      setVisible(true);
+    }
+  };
 
   const sendVibe = async () => {
     setError(null);
@@ -100,130 +149,171 @@ export default function HomePage() {
   const copyLink = async () => {
     if (!created) return;
     await navigator.clipboard.writeText(created.vibeUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   const reset = () => {
     setCreated(null);
     setTargetHandle("");
     setError(null);
+    setCopied(false);
   };
 
   const xAuthUrl = "/api/auth/x";
 
   return (
-    <main className="min-h-screen p-4 md:p-6 max-w-lg mx-auto">
-      <h1 className="text-xl font-semibold mb-6">Solana Vibes</h1>
+    <main className="min-h-screen flex flex-col items-center justify-center px-4 py-8">
+      <div className="w-full max-w-md">
+        {/* Title */}
+        <h1 className="text-2xl font-light tracking-wide text-center text-white/90 mb-2">
+          solana_vibes
+        </h1>
 
-      {oauthError && (
-        <p className="text-amber-500 text-sm mb-4">
-          X sign-in failed. Check your OAuth 1.0a settings in Twitter Developer Portal.
-        </p>
-      )}
+        {/* Vibe Image */}
+        <VibeImage />
 
-      <section className="space-y-4 mb-8">
-        <div className="flex items-center gap-2 flex-wrap">
-          <WalletMultiButton />
-          <span className="text-sm text-neutral-400">
-            {connected ? `Wallet: ${publicKey?.toBase58().slice(0, 4)}…` : "Connect wallet first"}
-          </span>
-        </div>
+        {oauthError && (
+          <div className="mb-4 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+            <p className="text-amber-400 text-sm text-center">
+              X sign-in failed. Please try again.
+            </p>
+          </div>
+        )}
 
-        <div className="flex items-center gap-2">
-          {xConnected ? (
-            xConnected.username ? (
-              <span className="text-sm text-green-500">X: @{xConnected.username}</span>
-            ) : (
-              <span className="text-sm text-green-500">X: Connected</span>
-            )
-          ) : (
-            <a
-              href={xAuthUrl}
-              className="text-sm px-3 py-1.5 rounded border border-neutral-600 hover:border-neutral-500"
+        {!created ? (
+          <div className="space-y-4">
+            {/* Connect Wallet Button */}
+            <button
+              onClick={handleConnectWallet}
+              className="btn-connect-wallet w-full flex items-center justify-center gap-3 py-4 px-6 rounded-xl text-white font-medium"
             >
-              Connect X
-            </a>
-          )}
-        </div>
-      </section>
+              <PhantomLogo />
+              <span>{connected ? `${publicKey?.toBase58().slice(0, 4)}...${publicKey?.toBase58().slice(-4)}` : "Connect wallet"}</span>
+              {connected && (
+                <span className="ml-auto text-vibe-teal">
+                  <CheckIcon />
+                </span>
+              )}
+            </button>
 
-      {!created ? (
-        <>
-          <section className="mb-6">
-            <label className="block text-sm text-neutral-400 mb-1">X username (type or paste handle)</label>
-            <input
-              type="text"
-              value={targetHandle}
-              onChange={(e) => {
-                setTargetHandle(e.target.value);
-                setError(null);
-              }}
-              placeholder="@elonmusk or elonmusk"
-              disabled={loading}
-              className="w-full bg-neutral-900 border border-neutral-700 rounded px-3 py-2 text-sm focus:outline-none focus:border-neutral-500 disabled:opacity-50"
-            />
-            <p className="text-xs text-neutral-500 mt-1">
-              The vibe is minted on-chain as an NFT before you tweet.
-            </p>
-          </section>
+            {/* Connect X Button */}
+            {xConnected ? (
+              <div className="btn-connect-x w-full flex items-center gap-3 py-4 px-6 rounded-xl text-white/80">
+                <XLogo />
+                <span>@{xConnected.username}</span>
+                <span className="ml-auto text-vibe-teal">
+                  <CheckIcon />
+                </span>
+              </div>
+            ) : (
+              <a
+                href={xAuthUrl}
+                className="btn-connect-x w-full flex items-center justify-center gap-3 py-4 px-6 rounded-xl text-white/60 hover:text-white/80"
+              >
+                <XLogo />
+                <span>Connect X</span>
+              </a>
+            )}
 
-          <button
-            type="button"
-            onClick={sendVibe}
-            disabled={!connected || !targetHandle.trim() || loading}
-            className="w-full py-2 rounded bg-green-700 hover:bg-green-600 disabled:opacity-50 disabled:pointer-events-none text-sm font-medium"
-          >
-            {loading ? "Minting on-chain…" : "Send Vibe"}
-          </button>
-        </>
-      ) : (
-        <section className="space-y-4">
-          <p className="text-sm text-green-500">Vibe minted on-chain!</p>
-          
-          {created.mintAddress && (
-            <p className="text-xs text-neutral-500 font-mono">
-              Mint: {created.mintAddress.slice(0, 8)}…{created.mintAddress.slice(-8)}
-            </p>
-          )}
-          
-          <div className="flex items-center gap-2">
-            <input
-              type="text"
-              readOnly
-              value={created.vibeUrl}
-              className="flex-1 bg-neutral-900 border border-neutral-700 rounded px-3 py-2 text-sm text-neutral-300"
-            />
+            {/* Send Vibe Section */}
+            <div className="pt-4">
+              <label className="block text-sm text-white/50 mb-2">
+                Send a vibe to
+              </label>
+              <input
+                type="text"
+                value={targetHandle}
+                onChange={(e) => {
+                  setTargetHandle(e.target.value);
+                  setError(null);
+                }}
+                placeholder="@username"
+                disabled={loading}
+                className="input-vibe w-full px-4 py-4 rounded-xl text-white text-base disabled:opacity-50"
+              />
+            </div>
+
+            {/* Send Vibe Button */}
             <button
               type="button"
-              onClick={copyLink}
-              className="px-3 py-2 rounded border border-neutral-600 hover:border-neutral-500 text-sm"
+              onClick={sendVibe}
+              disabled={!connected || !targetHandle.trim() || loading}
+              className="btn-send-vibe w-full py-4 rounded-xl text-white font-medium text-base"
             >
-              Copy
+              {loading ? "minting..." : "send vibe"}
+            </button>
+
+            {/* Cost Indicator */}
+            <p className="text-center text-white/30 text-sm">
+              ~0.005 SOL total
+            </p>
+
+            {error && (
+              <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20">
+                <p className="text-red-400 text-sm text-center">{error}</p>
+              </div>
+            )}
+          </div>
+        ) : (
+          /* Success State */
+          <div className="space-y-4">
+            <div className="success-card rounded-xl p-6 text-center">
+              <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-vibe-teal/20 flex items-center justify-center">
+                <svg className="w-6 h-6 text-vibe-teal" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <h2 className="text-xl font-medium text-white mb-2">Vibe sent!</h2>
+              <p className="text-white/50 text-sm mb-4">
+                Your vibe has been minted on Solana
+              </p>
+              
+              {created.mintAddress && (
+                <p className="text-xs text-white/30 font-mono mb-4">
+                  {created.mintAddress.slice(0, 12)}...{created.mintAddress.slice(-12)}
+                </p>
+              )}
+            </div>
+
+            {/* Vibe URL */}
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                readOnly
+                value={created.vibeUrl}
+                className="input-vibe flex-1 px-4 py-3 rounded-xl text-white/70 text-sm"
+              />
+              <button
+                type="button"
+                onClick={copyLink}
+                className="btn-connect-x px-4 py-3 rounded-xl text-white/60 hover:text-white text-sm"
+              >
+                {copied ? "Copied!" : "Copy"}
+              </button>
+            </div>
+            
+            {/* Post to X Button */}
+            <button
+              type="button"
+              onClick={postToX}
+              className="btn-post-x w-full flex items-center justify-center gap-2 py-4 rounded-xl text-white font-medium"
+            >
+              <XLogo />
+              <span>Post to X</span>
+            </button>
+
+            {/* Send Another */}
+            <button
+              type="button"
+              onClick={reset}
+              className="w-full py-3 rounded-xl text-white/40 hover:text-white/60 text-sm transition-colors"
+            >
+              Send another vibe
             </button>
           </div>
-          
-          <button
-            type="button"
-            onClick={postToX}
-            className="w-full py-2 rounded bg-[#1d9bf0] hover:bg-[#1a8cd8] text-sm font-medium"
-          >
-            Post to X
-          </button>
-          
-          <p className="text-xs text-neutral-500">
-            Opens Twitter with the vibe URL. You post from your own account.
-          </p>
-
-          <button
-            type="button"
-            onClick={reset}
-            className="w-full py-2 rounded border border-neutral-600 hover:border-neutral-500 text-sm"
-          >
-            Send Another Vibe
-          </button>
-        </section>
-      )}
-
-      {error && <p className="mt-4 text-sm text-red-400">{error}</p>}
+        )}
+      </div>
     </main>
   );
 }

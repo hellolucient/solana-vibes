@@ -60,34 +60,62 @@ export default async function VibePage({ params }: { params: Promise<{ id: strin
     .replace(/\.\d+Z$/, " UTC");
 
   return (
-    <main className="min-h-screen bg-black flex flex-col items-center justify-center p-4 font-mono">
-      {/* Vibe info (displayed as text, image is for Twitter card only) */}
-      <div className="text-center text-sm space-y-1">
-        <p className="text-green-500">
-          <span className="text-neutral-500">&gt;</span> received solana_vibes
-        </p>
-        <p className="text-green-500">
-          <span className="text-neutral-500">&gt;</span> verified by wallet {vibe.maskedWallet}
-        </p>
-        {vibe.mintAddress && (
-          <p className="text-green-500">
-            <span className="text-neutral-500">&gt;</span> mint {vibe.mintAddress.slice(0, 4)}…{vibe.mintAddress.slice(-4)}
-          </p>
-        )}
-        <p className="text-neutral-600 text-xs mt-2">{formattedTime}</p>
-        <p className="text-green-500 mt-4">
-          <span className="text-neutral-500">&gt;</span> for <span className="text-green-400">@{vibe.targetUsername}</span>
-        </p>
-      </div>
+    <main className="min-h-screen bg-[#050505] flex flex-col items-center justify-center p-4">
+      <div className="w-full max-w-md">
+        {/* Title */}
+        <h1 className="text-2xl font-light tracking-wide text-center text-white/90 mb-8">
+          solana_vibes
+        </h1>
 
-      {/* Claim section */}
-      <VibeClaimClient
-        vibeId={id}
-        targetUsername={vibe.targetUsername}
-        claimStatus={vibe.claimStatus}
-        claimerWallet={vibe.claimerWallet}
-        mintAddress={vibe.mintAddress}
-      />
+        {/* Vibe Card */}
+        <div className="rounded-2xl bg-gradient-to-br from-[#9945FF]/10 via-[#00D4FF]/5 to-[#14F195]/10 border border-white/10 p-6">
+          {/* Recipient */}
+          <div className="text-center mb-6">
+            <p className="text-white/40 text-sm mb-1">vibe for</p>
+            <p className="text-2xl font-medium text-[#14F195]">@{vibe.targetUsername}</p>
+          </div>
+
+          {/* Divider */}
+          <div className="h-px bg-gradient-to-r from-transparent via-white/10 to-transparent mb-6" />
+
+          {/* Details */}
+          <div className="space-y-3 text-sm">
+            <div className="flex justify-between items-center">
+              <span className="text-white/40">from</span>
+              <span className="text-white/70 font-mono">{vibe.maskedWallet}</span>
+            </div>
+            {vibe.mintAddress && (
+              <div className="flex justify-between items-center">
+                <span className="text-white/40">mint</span>
+                <span className="text-white/70 font-mono">
+                  {vibe.mintAddress.slice(0, 6)}...{vibe.mintAddress.slice(-6)}
+                </span>
+              </div>
+            )}
+            <div className="flex justify-between items-center">
+              <span className="text-white/40">created</span>
+              <span className="text-white/50 text-xs">{formattedTime}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Claim section */}
+        <VibeClaimClient
+          vibeId={id}
+          targetUsername={vibe.targetUsername}
+          claimStatus={vibe.claimStatus}
+          claimerWallet={vibe.claimerWallet}
+          mintAddress={vibe.mintAddress}
+        />
+
+        {/* Back to home link */}
+        <a
+          href="/"
+          className="block mt-8 text-center text-white/30 hover:text-white/50 text-sm transition-colors"
+        >
+          send your own vibe
+        </a>
+      </div>
     </main>
   );
 }
