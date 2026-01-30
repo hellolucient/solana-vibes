@@ -3,8 +3,11 @@ import "./globals.css";
 import { WalletProvider } from "@/components/WalletProvider";
 
 export const metadata: Metadata = {
-  title: "Solana Vibes",
-  description: "Send an anonymous, wallet-verified Solana vibe to someone on X.",
+  title: {
+    default: ">_",
+    template: "%s",
+  },
+  description: ">_",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

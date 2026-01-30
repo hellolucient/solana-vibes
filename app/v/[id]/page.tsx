@@ -20,19 +20,31 @@ export async function generateMetadata({
   // Use stored imageUri if available, otherwise fallback
   const imageUrl = vibe?.imageUri || getFallbackImageUrl(id);
   
+  // Code-style title for Twitter card
+  const cardTitle = ">_";
+  
   return {
-    title: "solana_vibes",
-    description: "solana_vibes",
+    title: cardTitle,
+    description: cardTitle,
     openGraph: { 
-      title: "solana_vibes", 
-      description: "solana_vibes", 
-      images: [imageUrl] 
+      title: cardTitle, 
+      description: cardTitle,
+      siteName: cardTitle,
+      images: [{
+        url: imageUrl,
+        width: 1200,
+        height: 630,
+        alt: cardTitle,
+      }],
     },
     twitter: { 
       card: "summary_large_image", 
-      title: "solana_vibes", 
-      description: "solana_vibes", 
-      images: [imageUrl] 
+      title: cardTitle, 
+      description: cardTitle,
+      images: [{
+        url: imageUrl,
+        alt: cardTitle,
+      }],
     },
   };
 }
@@ -45,14 +57,9 @@ export default async function VibePage({ params }: { params: Promise<{ id: strin
   // Use stored imageUri if available, otherwise fallback
   const imageUrl = vibe.imageUri || getFallbackImageUrl(id);
 
-  const formattedTime = new Date(vibe.createdAt)
-    .toISOString()
-    .replace("T", " ")
-    .replace(/\.\d+Z$/, " UTC");
-
   return (
     <main className="min-h-screen bg-black flex flex-col items-center justify-center p-4 font-mono">
-      {/* The vibe image */}
+      {/* The vibe image (text overlay is baked into the image) */}
       <div className="rounded overflow-hidden">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
@@ -60,22 +67,6 @@ export default async function VibePage({ params }: { params: Promise<{ id: strin
           alt={`Vibe for @${vibe.targetUsername}`}
           className="block w-full max-w-lg h-auto"
         />
-      </div>
-
-      {/* Vibe info */}
-      <div className="mt-4 text-center text-sm">
-        <p className="text-green-500">
-          <span className="text-neutral-500">&gt;</span> received solana_vibes
-        </p>
-        <p className="text-green-500">
-          <span className="text-neutral-500">&gt;</span> verified by wallet {vibe.maskedWallet}
-        </p>
-        {vibe.mintAddress && (
-          <p className="text-green-500">
-            <span className="text-neutral-500">&gt;</span> mint {vibe.mintAddress.slice(0, 4)}…{vibe.mintAddress.slice(-4)}
-          </p>
-        )}
-        <p className="text-neutral-600 text-xs mt-2">{formattedTime}</p>
       </div>
 
       {/* Claim section */}
