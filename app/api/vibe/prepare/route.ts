@@ -93,14 +93,14 @@ export async function POST(req: NextRequest) {
       baseUrl,
     });
 
-    const { metadataUri } = await uploadVibeAssets({
+    const { imageUri, metadataUri } = await uploadVibeAssets({
       vibeId,
       imageBuffer,
       metadata,
       baseUrl,
     });
 
-    console.log(`[vibe/create] Assets uploaded, metadata: ${metadataUri}`);
+    console.log(`[vibe/create] Assets uploaded, image: ${imageUri}, metadata: ${metadataUri}`);
 
     // Step 5: Update NFT metadata with final URI (optional - may fail due to RPC lag)
     try {
@@ -111,10 +111,11 @@ export async function POST(req: NextRequest) {
       console.warn(`[vibe/create] Could not update NFT metadata (non-fatal):`, updateErr);
     }
 
-    // Step 6: Update vibe record with mint info
+    // Step 6: Update vibe record with mint info and image URI
     await devVibeStore.update(vibeId, {
       mintAddress,
       metadataUri,
+      imageUri,
     });
 
     const vibeUrl = `${baseUrl}/v/${vibeId}`;

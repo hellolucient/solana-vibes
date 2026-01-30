@@ -14,7 +14,8 @@ export interface VibeRecord {
 
   // On-chain data (populated after mint)
   mintAddress?: string; // Metaplex Core asset address
-  metadataUri?: string; // Arweave/IPFS URI for metadata JSON
+  metadataUri?: string; // URI for metadata JSON
+  imageUri?: string; // URI for the vibe image
 
   // Claim state
   claimStatus: VibeClaimStatus;

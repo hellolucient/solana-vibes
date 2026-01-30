@@ -1,23 +1,20 @@
 /**
  * Image and metadata upload for vibes.
  * 
- * Dev: Uses local filesystem + API routes
- * Prod: TODO - swap to Arweave/IPFS (Irys/Bundlr)
+ * Uses Vercel Blob for persistent storage in production.
+ * Falls back to local filesystem for local development.
  */
 
+import { put } from "@vercel/blob";
 import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 
-// On Vercel, use /tmp; locally use public/media/vibes
-const VIBES_DIR =
-  process.env.VERCEL === "1"
-    ? path.join("/tmp", "vibes")
-    : path.join(process.cwd(), "public", "media", "vibes");
+// Check if we should use Vercel Blob (when BLOB_READ_WRITE_TOKEN is set)
+const USE_BLOB = !!process.env.BLOB_READ_WRITE_TOKEN;
 
-const METADATA_DIR =
-  process.env.VERCEL === "1"
-    ? path.join("/tmp", "metadata")
-    : path.join(process.cwd(), "public", "media", "metadata");
+// Local directories for dev
+const VIBES_DIR = path.join(process.cwd(), "public", "media", "vibes");
+const METADATA_DIR = path.join(process.cwd(), "public", "media", "metadata");
 
 async function ensureDir(dir: string) {
   await mkdir(dir, { recursive: true });
@@ -41,7 +38,7 @@ export interface UploadResult {
 
 /**
  * Upload vibe image and metadata.
- * Returns URIs that can be used for NFT metadata.
+ * Uses Vercel Blob in production, local filesystem in dev.
  */
 export async function uploadVibeAssets(params: {
   vibeId: string;
@@ -51,6 +48,69 @@ export async function uploadVibeAssets(params: {
 }): Promise<UploadResult> {
   const { vibeId, imageBuffer, metadata, baseUrl } = params;
 
+  if (USE_BLOB) {
+    return uploadToBlobStorage(params);
+  } else {
+    return uploadToLocalFilesystem(params);
+  }
+}
+
+/**
+ * Upload to Vercel Blob (production)
+ */
+async function uploadToBlobStorage(params: {
+  vibeId: string;
+  imageBuffer: Buffer;
+  metadata: VibeMetadata;
+  baseUrl: string;
+}): Promise<UploadResult> {
+  const { vibeId, imageBuffer, metadata } = params;
+
+  console.log(`[Upload] Using Vercel Blob for ${vibeId}`);
+
+  // Upload image to Blob
+  const imageBlob = await put(`vibes/${vibeId}.png`, imageBuffer, {
+    access: "public",
+    contentType: "image/png",
+  });
+  console.log(`[Upload] Image uploaded to Blob: ${imageBlob.url}`);
+
+  // Update metadata with blob image URL
+  const finalMetadata: VibeMetadata = {
+    ...metadata,
+    image: imageBlob.url,
+  };
+
+  // Upload metadata JSON to Blob
+  const metadataBlob = await put(
+    `metadata/${vibeId}.json`,
+    JSON.stringify(finalMetadata, null, 2),
+    {
+      access: "public",
+      contentType: "application/json",
+    }
+  );
+  console.log(`[Upload] Metadata uploaded to Blob: ${metadataBlob.url}`);
+
+  return {
+    imageUri: imageBlob.url,
+    metadataUri: metadataBlob.url,
+  };
+}
+
+/**
+ * Upload to local filesystem (development)
+ */
+async function uploadToLocalFilesystem(params: {
+  vibeId: string;
+  imageBuffer: Buffer;
+  metadata: VibeMetadata;
+  baseUrl: string;
+}): Promise<UploadResult> {
+  const { vibeId, imageBuffer, metadata, baseUrl } = params;
+
+  console.log(`[Upload] Using local filesystem for ${vibeId}`);
+
   await ensureDir(VIBES_DIR);
   await ensureDir(METADATA_DIR);
 
@@ -59,12 +119,7 @@ export async function uploadVibeAssets(params: {
   await writeFile(imagePath, imageBuffer);
   console.log(`[Upload] Image saved: ${imagePath}`);
 
-  // Determine image URI based on environment
-  // On Vercel, serve via API; locally serve from static files
-  const imageUri =
-    process.env.VERCEL === "1"
-      ? `${baseUrl}/api/vibe/image/${vibeId}`
-      : `${baseUrl}/media/vibes/${vibeId}.png`;
+  const imageUri = `${baseUrl}/media/vibes/${vibeId}.png`;
 
   // Update metadata with final image URI
   const finalMetadata: VibeMetadata = {
@@ -77,11 +132,7 @@ export async function uploadVibeAssets(params: {
   await writeFile(metadataPath, JSON.stringify(finalMetadata, null, 2));
   console.log(`[Upload] Metadata saved: ${metadataPath}`);
 
-  // Metadata URI
-  const metadataUri =
-    process.env.VERCEL === "1"
-      ? `${baseUrl}/api/vibe/${vibeId}/metadata`
-      : `${baseUrl}/media/metadata/${vibeId}.json`;
+  const metadataUri = `${baseUrl}/media/metadata/${vibeId}.json`;
 
   return {
     imageUri,

@@ -5,11 +5,8 @@ import { VibeClaimClient } from "./VibeClaimClient";
 
 const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
 
-function getImageUrl(id: string): string {
-  // On Vercel images are served from /tmp via API; locally from static /media/vibes.
-  if (process.env.VERCEL === "1") {
-    return baseUrl ? `${baseUrl}/api/vibe/image/${id}` : `/api/vibe/image/${id}`;
-  }
+function getFallbackImageUrl(id: string): string {
+  // Fallback for vibes without stored imageUri
   return baseUrl ? `${baseUrl}/media/vibes/${id}.png` : `/media/vibes/${id}.png`;
 }
 
@@ -21,7 +18,8 @@ export async function generateMetadata({
   const { id } = await params;
   const vibe = await devVibeStore.getById(id);
   const handle = vibe ? `@${vibe.targetUsername}` : "someone";
-  const imageUrl = getImageUrl(id);
+  // Use stored imageUri if available, otherwise fallback
+  const imageUrl = vibe?.imageUri || getFallbackImageUrl(id);
   
   return {
     title: `Vibe for ${handle}`,
@@ -45,7 +43,8 @@ export default async function VibePage({ params }: { params: Promise<{ id: strin
   const vibe = await devVibeStore.getById(id);
   if (!vibe) notFound();
 
-  const imageUrl = getImageUrl(id);
+  // Use stored imageUri if available, otherwise fallback
+  const imageUrl = vibe.imageUri || getFallbackImageUrl(id);
 
   const formattedTime = new Date(vibe.createdAt)
     .toISOString()

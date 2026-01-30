@@ -1,0 +1,28 @@
+{
+  "name": "Vibe for @trentmunday",
+  "description": "A solana_vibe sent to @trentmunday. Verified by wallet C5R…JVQ.",
+  "image": "http://localhost:3000/media/vibes/xek5hpbt.png",
+  "external_url": "http://localhost:3000/v/xek5hpbt",
+  "attributes": [
+    {
+      "trait_type": "Recipient",
+      "value": "@trentmunday"
+    },
+    {
+      "trait_type": "Sender Wallet",
+      "value": "C5R…JVQ"
+    },
+    {
+      "trait_type": "Mint",
+      "value": "EoMp2tyaSbJEo3kyMfu8LCZYUWJAE9XgnZqaDrShJU7j"
+    },
+    {
+      "trait_type": "Created",
+      "value": "2026-01-30T04:51:43.436Z"
+    },
+    {
+      "trait_type": "Status",
+      "value": "pending"
+    }
+  ]
+}
