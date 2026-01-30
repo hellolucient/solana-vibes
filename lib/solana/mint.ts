@@ -26,15 +26,13 @@ import { base58 } from "@metaplex-foundation/umi/serializers";
 import { getUmi } from "./umi";
 
 /**
- * Send a transaction and confirm it using polling (not WebSockets).
+ * Send a transaction and confirm it using blockhash strategy (not WebSockets).
  * This is required for Vercel/serverless environments where WebSocket
  * subscriptions don't work properly.
  */
 async function sendAndConfirmWithPolling(
   umi: Umi,
-  builder: TransactionBuilder,
-  maxRetries = 30,
-  retryDelayMs = 1000
+  builder: TransactionBuilder
 ): Promise<{ signature: Uint8Array; result: RpcConfirmTransactionResult }> {
   // Build, sign, and send the transaction
   const signedTx = await builder.buildAndSign(umi);
@@ -43,26 +41,20 @@ async function sendAndConfirmWithPolling(
   const signatureStr = base58.deserialize(signature)[0];
   console.log(`[TX] Sent transaction: ${signatureStr}`);
   
-  // Poll for confirmation
-  for (let i = 0; i < maxRetries; i++) {
-    const result = await umi.rpc.confirmTransaction(signature, {
-      strategy: { type: "blockhash", ...(await umi.rpc.getLatestBlockhash()) },
-    });
-    
-    if (result.value.err) {
-      throw new Error(`Transaction failed: ${JSON.stringify(result.value.err)}`);
-    }
-    
-    if (result.value.confirmationStatus === "confirmed" || result.value.confirmationStatus === "finalized") {
-      console.log(`[TX] Confirmed with status: ${result.value.confirmationStatus}`);
-      return { signature, result };
-    }
-    
-    // Wait before polling again
-    await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
+  // Get blockhash for confirmation strategy
+  const blockhash = await umi.rpc.getLatestBlockhash();
+  
+  // Confirm using blockhash strategy (polls internally, no WebSocket)
+  const result = await umi.rpc.confirmTransaction(signature, {
+    strategy: { type: "blockhash", ...blockhash },
+  });
+  
+  if (result.value.err) {
+    throw new Error(`Transaction failed: ${JSON.stringify(result.value.err)}`);
   }
   
-  throw new Error(`Transaction confirmation timed out after ${maxRetries * retryDelayMs}ms`);
+  console.log(`[TX] Transaction confirmed`);
+  return { signature, result };
 }
 
 /**
