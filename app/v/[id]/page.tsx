@@ -17,22 +17,21 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { id } = await params;
   const vibe = await vibeStore.getById(id);
-  const handle = vibe ? `@${vibe.targetUsername}` : "someone";
   // Use stored imageUri if available, otherwise fallback
   const imageUrl = vibe?.imageUri || getFallbackImageUrl(id);
   
   return {
-    title: `Vibe for ${handle}`,
-    description: `A solana_vibes gift for ${handle}`,
+    title: "solana_vibes",
+    description: "solana_vibes",
     openGraph: { 
-      title: `Vibe for ${handle}`, 
-      description: `A solana_vibes gift for ${handle}`, 
+      title: "solana_vibes", 
+      description: "solana_vibes", 
       images: [imageUrl] 
     },
     twitter: { 
       card: "summary_large_image", 
-      title: `Vibe for ${handle}`, 
-      description: `A solana_vibes gift for ${handle}`, 
+      title: "solana_vibes", 
+      description: "solana_vibes", 
       images: [imageUrl] 
     },
   };

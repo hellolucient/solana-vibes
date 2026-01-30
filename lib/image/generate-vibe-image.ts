@@ -3,15 +3,16 @@
  * Uses sharp (Vercel-friendly, no native deps). Base asset: public/media/vibes4b.png
  * 
  * Text elements rendered on the image:
- * - Top-left: Recipient @handle (semi-transparent)
+ * - Top-left: Faint binary decoration (101010...)
  * - Bottom: Footer with vibe info (green terminal style)
  *   - "> received solana_vibes"
  *   - "> verified by wallet <masked_wallet>"
  *   - "> mint <masked_mint>"
  *   - Timestamp (UTC)
+ *   - "> for @handle"
  */
 
-import { writeFileSync, mkdirSync, existsSync } from "fs";
+import { writeFileSync, mkdirSync } from "fs";
 import path from "path";
 import sharp from "sharp";
 
@@ -19,11 +20,11 @@ const BASE_IMAGE_PATH = path.join(process.cwd(), "public", "media", "vibes4b.png
 
 // Styling constants
 const FONT_SIZE = 14;
-const FONT_SIZE_HANDLE = 24;
+const FONT_SIZE_BINARY = 12;
 const PADDING = 16;
 const LINE_HEIGHT = 18;
 const FOOTER_COLOR = "#00ff00";
-const HANDLE_COLOR = "rgba(255, 255, 255, 0.15)"; // Semi-transparent white
+const BINARY_COLOR = "rgba(0, 255, 0, 0.06)"; // Very faint green for binary decoration
 
 export interface GenerateVibeImageOptions {
   maskedWallet: string;
@@ -82,12 +83,14 @@ export async function generateVibeImage(options: GenerateVibeImageOptions): Prom
   const maskedMint = maskMintAddress(mintAddress);
   const formattedTime = formatTimestamp(timestamp);
 
-  // Footer text lines
+  // Footer text lines (including recipient handle)
   const footerLines = [
     "> received solana_vibes",
     `> verified by wallet ${maskedWallet}`,
     `> mint ${maskedMint}`,
     formattedTime,
+    "",
+    `> for ${handle}`,
   ];
 
   const footerHeight = LINE_HEIGHT * footerLines.length + PADDING * 2;
@@ -103,22 +106,33 @@ export async function generateVibeImage(options: GenerateVibeImageOptions): Prom
     .join("\n  ")}
 </svg>`;
 
-  // Create handle SVG overlay (top-left, semi-transparent)
-  const handleHeight = FONT_SIZE_HANDLE + PADDING * 2;
-  const handleSvg = `
-<svg width="${width}" height="${handleHeight}" xmlns="http://www.w3.org/2000/svg">
-  <text x="${PADDING}" y="${PADDING + FONT_SIZE_HANDLE}" font-family="monospace" font-size="${FONT_SIZE_HANDLE}" font-weight="bold" fill="${HANDLE_COLOR}">${escapeSvg(handle)}</text>
+  // Create binary decoration SVG overlay (top-left area, very faint)
+  const binaryLines = [
+    "101010110010101101001011",
+    "010110101001101010110101",
+    "110101010110010101101001",
+  ];
+  const binaryLineHeight = FONT_SIZE_BINARY + 2;
+  const binaryHeight = binaryLineHeight * binaryLines.length + PADDING * 2;
+  const binarySvg = `
+<svg width="${width}" height="${binaryHeight}" xmlns="http://www.w3.org/2000/svg">
+  ${binaryLines
+    .map(
+      (line, i) =>
+        `<text x="${PADDING}" y="${PADDING + (i + 1) * binaryLineHeight}" font-family="monospace" font-size="${FONT_SIZE_BINARY}" fill="${BINARY_COLOR}">${line}</text>`
+    )
+    .join("\n  ")}
 </svg>`;
 
   const footerBuffer = Buffer.from(footerSvg.trim());
-  const handleBuffer = Buffer.from(handleSvg.trim());
+  const binaryBuffer = Buffer.from(binarySvg.trim());
 
   const outBuffer = await image
     .composite([
-      // Handle overlay at top-left
+      // Binary decoration at top-left (very faint)
       {
-        input: handleBuffer,
-        top: 0,
+        input: binaryBuffer,
+        top: Math.floor(height * 0.35), // Position in upper-middle area
         left: 0,
       },
       // Footer overlay at bottom
@@ -158,12 +172,14 @@ export async function generateVibeImageBuffer(
   const maskedMint = maskMintAddress(mintAddress);
   const formattedTime = formatTimestamp(timestamp);
 
-  // Footer text lines
+  // Footer text lines (including recipient handle)
   const footerLines = [
     "> received solana_vibes",
     `> verified by wallet ${maskedWallet}`,
     `> mint ${maskedMint}`,
     formattedTime,
+    "",
+    `> for ${handle}`,
   ];
 
   const footerHeight = LINE_HEIGHT * footerLines.length + PADDING * 2;
@@ -179,23 +195,36 @@ export async function generateVibeImageBuffer(
     .join("\n  ")}
 </svg>`;
 
-  // Create handle SVG overlay (top-left, semi-transparent)
-  const handleHeight = FONT_SIZE_HANDLE + PADDING * 2;
-  const handleSvg = `
-<svg width="${width}" height="${handleHeight}" xmlns="http://www.w3.org/2000/svg">
-  <text x="${PADDING}" y="${PADDING + FONT_SIZE_HANDLE}" font-family="monospace" font-size="${FONT_SIZE_HANDLE}" font-weight="bold" fill="${HANDLE_COLOR}">${escapeSvg(handle)}</text>
+  // Create binary decoration SVG overlay (top-left area, very faint)
+  const binaryLines = [
+    "101010110010101101001011",
+    "010110101001101010110101",
+    "110101010110010101101001",
+  ];
+  const binaryLineHeight = FONT_SIZE_BINARY + 2;
+  const binaryHeight = binaryLineHeight * binaryLines.length + PADDING * 2;
+  const binarySvg = `
+<svg width="${width}" height="${binaryHeight}" xmlns="http://www.w3.org/2000/svg">
+  ${binaryLines
+    .map(
+      (line, i) =>
+        `<text x="${PADDING}" y="${PADDING + (i + 1) * binaryLineHeight}" font-family="monospace" font-size="${FONT_SIZE_BINARY}" fill="${BINARY_COLOR}">${line}</text>`
+    )
+    .join("\n  ")}
 </svg>`;
 
   const footerBuffer = Buffer.from(footerSvg.trim());
-  const handleBuffer = Buffer.from(handleSvg.trim());
+  const binaryBuffer = Buffer.from(binarySvg.trim());
 
   const outBuffer = await image
     .composite([
+      // Binary decoration at top-left (very faint)
       {
-        input: handleBuffer,
-        top: 0,
+        input: binaryBuffer,
+        top: Math.floor(height * 0.35), // Position in upper-middle area
         left: 0,
       },
+      // Footer overlay at bottom
       {
         input: footerBuffer,
         top: height - footerHeight,
