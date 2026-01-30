@@ -13,6 +13,7 @@ export const X_OAUTH_SCOPES = "users.read tweet.read offline.access";
 export const X_OAUTH_COOKIE = "x_access_token";
 export const X_OAUTH_STATE_COOKIE = "x_oauth_state";
 export const X_OAUTH_VERIFIER_COOKIE = "x_oauth_verifier";
+export const X_OAUTH_RETURN_COOKIE = "x_oauth_return";
 
 function base64UrlEncode(buf: Buffer): string {
   return buf.toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");

@@ -9,27 +9,34 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "sharp": "^0.33.5",
+    "@metaplex-foundation/mpl-core": "^1.7.0",
+    "@metaplex-foundation/umi": "^1.4.1",
+    "@metaplex-foundation/umi-bundle-defaults": "^1.4.1",
+    "@metaplex-foundation/umi-web3js-adapters": "^1.4.1",
     "@solana/wallet-adapter-base": "^0.9.23",
     "@solana/wallet-adapter-react": "^0.15.35",
     "@solana/wallet-adapter-react-ui": "^0.9.35",
     "@solana/wallet-adapter-wallets": "^0.19.32",
     "@solana/web3.js": "^1.95.3",
+    "bs58": "^6.0.0",
+    "crypto-js": "^4.2.0",
     "gif-encoder-2": "^1.0.5",
     "gifuct-js": "^2.1.2",
     "next": "14.2.15",
+    "oauth-1.0a": "^2.2.6",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "sharp": "^0.33.5"
   },
   "optionalDependencies": {
     "canvas": "^2.11.2"
   },
   "devDependencies": {
     "@types/node": "^20.14.10",
-    "pino-pretty": "^11.0.0",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "autoprefixer": "^10.4.19",
+    "pino-pretty": "^11.0.0",
     "postcss": "^8.4.39",
     "tailwindcss": "^3.4.4",
     "typescript": "^5.5.3"

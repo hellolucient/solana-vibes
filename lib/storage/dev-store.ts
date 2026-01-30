@@ -37,6 +37,7 @@ export const devVibeStore: IVibeStore = {
     const record: VibeRecord = {
       ...vibe,
       createdAt: new Date().toISOString(),
+      claimStatus: "pending",
     };
     vibes.push(record);
     await writeVibes(vibes);
@@ -46,5 +47,15 @@ export const devVibeStore: IVibeStore = {
   async getById(id: string) {
     const vibes = await readVibes();
     return vibes.find((v) => v.id === id) ?? null;
+  },
+
+  async update(id: string, updates: Partial<VibeRecord>) {
+    const vibes = await readVibes();
+    const index = vibes.findIndex((v) => v.id === id);
+    if (index === -1) return null;
+
+    vibes[index] = { ...vibes[index], ...updates };
+    await writeVibes(vibes);
+    return vibes[index];
   },
 };

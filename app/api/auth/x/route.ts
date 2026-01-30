@@ -1,36 +1,55 @@
 /**
- * Start X OAuth: generate PKCE, set cookies, redirect to X.
+ * Start X OAuth 1.0a: get request token, redirect to Twitter authorization
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { generatePKCE, getAuthUrl, X_OAUTH_STATE_COOKIE, X_OAUTH_VERIFIER_COOKIE } from "@/lib/x-oauth";
-import { randomBytes } from "crypto";
+import {
+  getRequestToken,
+  getAuthorizeUrl,
+  getOAuth1Config,
+  X_OAUTH1_TOKEN_COOKIE,
+  X_OAUTH1_SECRET_COOKIE,
+  X_OAUTH1_RETURN_COOKIE,
+} from "@/lib/x-oauth-1";
 
 export async function GET(req: NextRequest) {
-  const clientId = process.env.X_CLIENT_ID;
-  const redirectUri = process.env.X_REDIRECT_URI;
-  if (!clientId || !redirectUri) {
-    return NextResponse.json(
-      { error: "X OAuth not configured (X_CLIENT_ID, X_REDIRECT_URI)" },
-      { status: 500 }
+  try {
+    const config = getOAuth1Config();
+    
+    // Capture return URL from query param
+    const returnTo = req.nextUrl.searchParams.get("return_to") || "/";
+
+    // Step 1: Get request token from Twitter
+    const requestToken = await getRequestToken(config);
+    
+    if (!requestToken.oauth_token || !requestToken.oauth_token_secret) {
+      throw new Error("Invalid request token response");
+    }
+
+    // Step 2: Build authorization URL
+    const authorizeUrl = getAuthorizeUrl(requestToken.oauth_token);
+
+    console.log("[OAuth1] Redirecting to Twitter authorization");
+
+    // Step 3: Store tokens in cookies and redirect
+    const res = NextResponse.redirect(authorizeUrl);
+    const cookieOpts = {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+      maxAge: 600, // 10 minutes
+    };
+
+    res.cookies.set(X_OAUTH1_TOKEN_COOKIE, requestToken.oauth_token, cookieOpts);
+    res.cookies.set(X_OAUTH1_SECRET_COOKIE, requestToken.oauth_token_secret, cookieOpts);
+    res.cookies.set(X_OAUTH1_RETURN_COOKIE, returnTo, cookieOpts);
+
+    return res;
+  } catch (error) {
+    console.error("[OAuth1] Failed to start auth:", error);
+    const message = error instanceof Error ? error.message : "unknown_error";
+    return NextResponse.redirect(
+      new URL(`/?error=x_oauth&message=${encodeURIComponent(message)}`, req.url)
     );
   }
-
-  const { codeVerifier, codeChallenge } = generatePKCE();
-  const state = randomBytes(16).toString("hex");
-  const url = getAuthUrl({
-    clientId,
-    redirectUri,
-    codeChallenge,
-    state,
-  });
-
-  // Debug: log the OAuth URL (without sensitive data)
-  console.log("[X OAuth] Redirecting to:", url.replace(/code_challenge=[^&]+/, "code_challenge=***"));
-
-  const res = NextResponse.redirect(url);
-  const cookieOpts = { httpOnly: true, secure: process.env.NODE_ENV === "production", path: "/", maxAge: 600 };
-  res.cookies.set(X_OAUTH_STATE_COOKIE, state, cookieOpts);
-  res.cookies.set(X_OAUTH_VERIFIER_COOKIE, codeVerifier, cookieOpts);
-  return res;
 }

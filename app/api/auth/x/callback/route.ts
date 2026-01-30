@@ -1,61 +1,86 @@
 /**
- * X OAuth callback: exchange code for token, set cookie, redirect to app.
+ * X OAuth 1.0a callback: exchange verifier for access token (includes username!)
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { exchangeCode, X_OAUTH_COOKIE, X_OAUTH_STATE_COOKIE, X_OAUTH_VERIFIER_COOKIE } from "@/lib/x-oauth";
+import {
+  getAccessToken,
+  getOAuth1Config,
+  X_OAUTH1_TOKEN_COOKIE,
+  X_OAUTH1_SECRET_COOKIE,
+  X_OAUTH1_RETURN_COOKIE,
+  X_USER_COOKIE,
+} from "@/lib/x-oauth-1";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
-  const code = searchParams.get("code");
-  const state = searchParams.get("state");
-  const error = searchParams.get("error");
+  const oauthToken = searchParams.get("oauth_token");
+  const oauthVerifier = searchParams.get("oauth_verifier");
+  const denied = searchParams.get("denied");
 
-  if (error) {
-    return NextResponse.redirect(new URL(`/?error=x_oauth&message=${encodeURIComponent(error)}`, req.url));
+  // User denied authorization
+  if (denied) {
+    console.log("[OAuth1] User denied authorization");
+    return NextResponse.redirect(new URL("/?error=x_oauth&message=denied", req.url));
   }
 
-  const stateCookie = req.cookies.get(X_OAUTH_STATE_COOKIE)?.value;
-  const codeVerifier = req.cookies.get(X_OAUTH_VERIFIER_COOKIE)?.value;
+  // Get stored tokens from cookies
+  const storedToken = req.cookies.get(X_OAUTH1_TOKEN_COOKIE)?.value;
+  const storedSecret = req.cookies.get(X_OAUTH1_SECRET_COOKIE)?.value;
+  const returnTo = req.cookies.get(X_OAUTH1_RETURN_COOKIE)?.value || "/";
 
-  if (!code || !state || state !== stateCookie || !codeVerifier) {
+  // Validate callback
+  if (!oauthToken || !oauthVerifier || !storedToken || !storedSecret) {
+    console.error("[OAuth1] Invalid callback - missing params or cookies");
     return NextResponse.redirect(new URL("/?error=x_oauth&message=invalid_callback", req.url));
   }
 
-  const clientId = process.env.X_CLIENT_ID;
-  const clientSecret = process.env.X_CLIENT_SECRET;
-  const redirectUri = process.env.X_REDIRECT_URI;
-  if (!clientId || !redirectUri) {
-    return NextResponse.redirect(new URL("/?error=x_oauth&message=config", req.url));
+  // Verify token matches
+  if (oauthToken !== storedToken) {
+    console.error("[OAuth1] Token mismatch");
+    return NextResponse.redirect(new URL("/?error=x_oauth&message=token_mismatch", req.url));
   }
 
   try {
-    const token = await exchangeCode({
-      code,
-      codeVerifier,
-      clientId,
-      redirectUri,
-      clientSecret: clientSecret ?? undefined,
+    const config = getOAuth1Config();
+
+    // Exchange for access token - this includes user_id and screen_name!
+    const accessToken = await getAccessToken(
+      config,
+      storedToken,
+      storedSecret,
+      oauthVerifier
+    );
+
+    console.log(`[OAuth1] Successfully authenticated @${accessToken.screen_name}`);
+
+    // Store user info in cookie (no API call needed!)
+    const userInfo = JSON.stringify({
+      id: accessToken.user_id,
+      username: accessToken.screen_name,
     });
-    const res = NextResponse.redirect(new URL("/", req.url));
-    res.cookies.set(X_OAUTH_COOKIE, token.access_token, {
+
+    const res = NextResponse.redirect(new URL(returnTo, req.url));
+
+    // Set user cookie (this is all we need - no API calls!)
+    res.cookies.set(X_USER_COOKIE, userInfo, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       path: "/",
       maxAge: 60 * 60 * 24 * 7, // 7 days
     });
-    res.cookies.delete(X_OAUTH_STATE_COOKIE);
-    res.cookies.delete(X_OAUTH_VERIFIER_COOKIE);
-    console.log("[X OAuth] Successfully exchanged code for token");
+
+    // Clean up temporary cookies
+    res.cookies.delete(X_OAUTH1_TOKEN_COOKIE);
+    res.cookies.delete(X_OAUTH1_SECRET_COOKIE);
+    res.cookies.delete(X_OAUTH1_RETURN_COOKIE);
+
     return res;
-  } catch (e) {
-    console.error("[X OAuth] Token exchange failed:", e);
-    const message = e instanceof Error ? e.message : "exchange_failed";
-    const res = NextResponse.redirect(new URL(`/?error=x_oauth&message=${encodeURIComponent(message)}`, req.url));
-    // Clear any stale cookies on error
-    res.cookies.delete(X_OAUTH_COOKIE);
-    res.cookies.delete(X_OAUTH_STATE_COOKIE);
-    res.cookies.delete(X_OAUTH_VERIFIER_COOKIE);
-    return res;
+  } catch (error) {
+    console.error("[OAuth1] Access token exchange failed:", error);
+    const message = error instanceof Error ? error.message : "exchange_failed";
+    return NextResponse.redirect(
+      new URL(`/?error=x_oauth&message=${encodeURIComponent(message)}`, req.url)
+    );
   }
 }

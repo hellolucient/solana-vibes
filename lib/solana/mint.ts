@@ -1,0 +1,143 @@
+/**
+ * Metaplex Core NFT operations for vibes.
+ * 
+ * Flow:
+ * 1. Create asset with authority as owner (vault)
+ * 2. Asset is held until claimed
+ * 3. On claim, transfer to recipient wallet
+ */
+
+import {
+  create,
+  fetchAssetV1,
+  transfer,
+  update,
+  AssetV1,
+} from "@metaplex-foundation/mpl-core";
+import {
+  generateSigner,
+  publicKey,
+  TransactionBuilderSendAndConfirmOptions,
+} from "@metaplex-foundation/umi";
+import { getUmi } from "./umi";
+
+const TX_OPTIONS: TransactionBuilderSendAndConfirmOptions = {
+  confirm: { commitment: "confirmed" },
+};
+
+/**
+ * Sleep for a given number of milliseconds.
+ */
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Update the metadata URI of a vibe NFT.
+ * Called after the final image is generated and uploaded.
+ * Includes retry logic for RPC lag.
+ */
+export async function updateVibeMetadata(
+  mintAddress: string,
+  newUri: string
+): Promise<string> {
+  const { umi } = getUmi();
+
+  console.log(`[Mint] Updating metadata for ${mintAddress} to ${newUri}`);
+
+  const assetPubkey = publicKey(mintAddress);
+  
+  // Retry fetching the asset with delays (RPC can lag behind)
+  let asset = null;
+  const maxRetries = 5;
+  const delayMs = 2000;
+  
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      asset = await fetchAssetV1(umi, assetPubkey);
+      break;
+    } catch (e) {
+      if (attempt === maxRetries) {
+        console.error(`[Mint] Failed to fetch asset after ${maxRetries} attempts`);
+        throw e;
+      }
+      console.log(`[Mint] Asset not found, retrying in ${delayMs}ms (attempt ${attempt}/${maxRetries})`);
+      await sleep(delayMs);
+    }
+  }
+
+  if (!asset) {
+    throw new Error(`Asset ${mintAddress} not found after retries`);
+  }
+
+  const builder = update(umi, {
+    asset,
+    uri: newUri,
+  });
+
+  const result = await builder.sendAndConfirm(umi, TX_OPTIONS);
+  const signature = Buffer.from(result.signature).toString("base64");
+
+  console.log(`[Mint] Metadata updated, sig: ${signature}`);
+
+  return signature;
+}
+
+/**
+ * Transfer a vibe NFT from the vault to the claimer.
+ * Only called after Twitter verification passes.
+ */
+export async function transferVibeToClaimer(
+  mintAddress: string,
+  claimerWallet: string
+): Promise<string> {
+  const { umi } = getUmi();
+
+  console.log(`[Mint] Transferring ${mintAddress} to ${claimerWallet}`);
+
+  // Fetch the asset to get full object for transfer
+  const assetPubkey = publicKey(mintAddress);
+  const asset = await fetchAssetV1(umi, assetPubkey);
+  const newOwner = publicKey(claimerWallet);
+
+  const builder = transfer(umi, {
+    asset,
+    newOwner,
+  });
+
+  const result = await builder.sendAndConfirm(umi, TX_OPTIONS);
+  const signature = Buffer.from(result.signature).toString("base64");
+
+  console.log(`[Mint] Transfer complete, sig: ${signature}`);
+
+  return signature;
+}
+
+/**
+ * Fetch asset data to verify ownership and claim status.
+ */
+export async function getVibeAsset(mintAddress: string): Promise<AssetV1 | null> {
+  const { umi } = getUmi();
+
+  try {
+    const asset = await fetchAssetV1(umi, publicKey(mintAddress));
+    return asset;
+  } catch (e) {
+    console.error(`[Mint] Failed to fetch asset ${mintAddress}:`, e);
+    return null;
+  }
+}
+
+/**
+ * Check if an asset is still in the vault (not yet claimed).
+ */
+export async function isVibeInVault(mintAddress: string): Promise<boolean> {
+  const { umi, authority } = getUmi();
+
+  try {
+    const asset = await fetchAssetV1(umi, publicKey(mintAddress));
+    return asset.owner.toString() === authority.publicKey.toString();
+  } catch {
+    return false;
+  }
+}
