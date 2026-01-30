@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useWallet } from "@solana/wallet-adapter-react";
+import { useWallet, useConnection } from "@solana/wallet-adapter-react";
+import { VersionedTransaction } from "@solana/web3.js";
 import dynamic from "next/dynamic";
 import type { VibeClaimStatus } from "@/lib/storage/types";
 
@@ -25,7 +26,8 @@ export function VibeClaimClient({
   claimerWallet: initialClaimerWallet,
   mintAddress,
 }: VibeClaimClientProps) {
-  const { publicKey, connected } = useWallet();
+  const { publicKey, connected, signTransaction } = useWallet();
+  const { connection } = useConnection();
   const [xUser, setXUser] = useState<{ username: string } | null>(null);
   const [claimStatus, setClaimStatus] = useState(initialClaimStatus);
   const [claimerWallet, setClaimerWallet] = useState(initialClaimerWallet);
@@ -60,13 +62,14 @@ export function VibeClaimClient({
   const canClaim = isRecipient && connected && claimStatus === "pending" && mintAddress;
 
   const handleClaim = async () => {
-    if (!publicKey || !canClaim) return;
+    if (!publicKey || !canClaim || !signTransaction) return;
 
     setError(null);
     setClaiming(true);
 
     try {
-      const res = await fetch("/api/vibe/claim", {
+      // Step 1: Get the prepared transaction from the backend
+      const prepareRes = await fetch("/api/vibe/claim/prepare", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -75,10 +78,56 @@ export function VibeClaimClient({
         }),
       });
 
-      const data = await res.json();
+      const prepareData = await prepareRes.json();
 
-      if (!res.ok) {
-        throw new Error(data.error ?? "Failed to claim vibe");
+      if (!prepareRes.ok) {
+        throw new Error(prepareData.error ?? "Failed to prepare claim");
+      }
+
+      // Step 2: Deserialize and sign the transaction
+      const transactionBuffer = Buffer.from(prepareData.transaction, "base64");
+      const transaction = VersionedTransaction.deserialize(transactionBuffer);
+
+      // User signs as fee payer
+      const signedTransaction = await signTransaction(transaction);
+
+      // Step 3: Send the transaction
+      const signature = await connection.sendRawTransaction(
+        signedTransaction.serialize(),
+        { skipPreflight: false }
+      );
+
+      console.log("Transaction sent:", signature);
+
+      // Step 4: Wait for confirmation
+      const confirmation = await connection.confirmTransaction({
+        signature,
+        blockhash: prepareData.blockhash,
+        lastValidBlockHeight: prepareData.lastValidBlockHeight,
+      });
+
+      if (confirmation.value.err) {
+        throw new Error("Transaction failed on-chain");
+      }
+
+      console.log("Transaction confirmed:", signature);
+
+      // Step 5: Confirm with backend to update database
+      const confirmRes = await fetch("/api/vibe/claim/confirm", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          vibeId,
+          claimerWallet: publicKey.toBase58(),
+          signature,
+        }),
+      });
+
+      const confirmData = await confirmRes.json();
+
+      if (!confirmRes.ok) {
+        // Transaction succeeded but DB update failed - not critical
+        console.warn("DB update failed:", confirmData.error);
       }
 
       setClaimStatus("claimed");
