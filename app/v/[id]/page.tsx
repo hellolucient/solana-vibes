@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { devVibeStore } from "@/lib/storage/dev-store";
+import { vibeStore } from "@/lib/storage/supabase";
 import { VibeClaimClient } from "./VibeClaimClient";
 
 const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
@@ -16,7 +16,7 @@ export async function generateMetadata({
   params: Promise<{ id: string }>;
 }): Promise<Metadata> {
   const { id } = await params;
-  const vibe = await devVibeStore.getById(id);
+  const vibe = await vibeStore.getById(id);
   const handle = vibe ? `@${vibe.targetUsername}` : "someone";
   // Use stored imageUri if available, otherwise fallback
   const imageUrl = vibe?.imageUri || getFallbackImageUrl(id);
@@ -40,7 +40,7 @@ export async function generateMetadata({
 
 export default async function VibePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const vibe = await devVibeStore.getById(id);
+  const vibe = await vibeStore.getById(id);
   if (!vibe) notFound();
 
   // Use stored imageUri if available, otherwise fallback

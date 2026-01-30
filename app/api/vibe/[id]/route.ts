@@ -3,14 +3,14 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { devVibeStore } from "@/lib/storage/dev-store";
+import { vibeStore } from "@/lib/storage/supabase";
 
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const vibe = await devVibeStore.getById(id);
+  const vibe = await vibeStore.getById(id);
   if (!vibe) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }

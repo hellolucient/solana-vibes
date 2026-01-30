@@ -10,7 +10,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { devVibeStore } from "@/lib/storage/dev-store";
+import { vibeStore } from "@/lib/storage/supabase";
 import { transferVibeToClaimer, isVibeInVault } from "@/lib/solana/mint";
 import { X_USER_COOKIE } from "@/lib/x-oauth-1";
 
@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
 
   try {
     // Get the vibe record
-    const vibe = await devVibeStore.getById(vibeId);
+    const vibe = await vibeStore.getById(vibeId);
     if (!vibe) {
       return NextResponse.json({ error: "Vibe not found" }, { status: 404 });
     }
@@ -101,7 +101,7 @@ export async function POST(req: NextRequest) {
     const inVault = await isVibeInVault(vibe.mintAddress);
     if (!inVault) {
       // NFT was already transferred (maybe double-claim race condition)
-      await devVibeStore.update(vibeId, {
+      await vibeStore.update(vibeId, {
         claimStatus: "claimed",
       });
       return NextResponse.json(
@@ -117,7 +117,7 @@ export async function POST(req: NextRequest) {
     const signature = await transferVibeToClaimer(vibe.mintAddress, claimerWallet);
 
     // Update the vibe record
-    await devVibeStore.update(vibeId, {
+    await vibeStore.update(vibeId, {
       claimStatus: "claimed",
       claimerWallet,
       claimedAt: new Date().toISOString(),

@@ -13,7 +13,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { devVibeStore } from "@/lib/storage/dev-store";
+import { vibeStore } from "@/lib/storage/supabase";
 import { maskWallet } from "@/lib/wallet";
 import { generateVibeId } from "@/lib/id";
 import { mintVibe } from "@/lib/solana/transaction";
@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
 
   try {
     // Step 1: Create pending vibe record
-    const vibe = await devVibeStore.create({
+    const vibe = await vibeStore.create({
       id: vibeId,
       targetUserId: username,
       targetUsername: username,
@@ -112,7 +112,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Step 6: Update vibe record with mint info and image URI
-    await devVibeStore.update(vibeId, {
+    await vibeStore.update(vibeId, {
       mintAddress,
       metadataUri,
       imageUri,
