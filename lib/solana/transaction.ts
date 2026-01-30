@@ -48,13 +48,13 @@ async function sendAndConfirmWithPolling(
     const status = statuses[0];
     
     if (status) {
-      if (status.err) {
-        throw new Error(`Transaction failed: ${JSON.stringify(status.err)}`);
+      if (status.error) {
+        throw new Error(`Transaction failed: ${JSON.stringify(status.error)}`);
       }
       
-      // Check if confirmed or finalized
-      if (status.confirmationStatus === "confirmed" || status.confirmationStatus === "finalized") {
-        console.log(`[TX] Confirmed with status: ${status.confirmationStatus}`);
+      // Check if confirmed (confirmations is not null means it has been confirmed)
+      if (status.confirmations !== null) {
+        console.log(`[TX] Confirmed with ${status.confirmations} confirmations`);
         return { signature };
       }
     }
