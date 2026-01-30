@@ -54,19 +54,30 @@ export default async function VibePage({ params }: { params: Promise<{ id: strin
   const vibe = await vibeStore.getById(id);
   if (!vibe) notFound();
 
-  // Use stored imageUri if available, otherwise fallback
-  const imageUrl = vibe.imageUri || getFallbackImageUrl(id);
+  const formattedTime = new Date(vibe.createdAt)
+    .toISOString()
+    .replace("T", " ")
+    .replace(/\.\d+Z$/, " UTC");
 
   return (
     <main className="min-h-screen bg-black flex flex-col items-center justify-center p-4 font-mono">
-      {/* The vibe image (text overlay is baked into the image) */}
-      <div className="rounded overflow-hidden">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={imageUrl}
-          alt={`Vibe for @${vibe.targetUsername}`}
-          className="block w-full max-w-lg h-auto"
-        />
+      {/* Vibe info (displayed as text, image is for Twitter card only) */}
+      <div className="text-center text-sm space-y-1">
+        <p className="text-green-500">
+          <span className="text-neutral-500">&gt;</span> received solana_vibes
+        </p>
+        <p className="text-green-500">
+          <span className="text-neutral-500">&gt;</span> verified by wallet {vibe.maskedWallet}
+        </p>
+        {vibe.mintAddress && (
+          <p className="text-green-500">
+            <span className="text-neutral-500">&gt;</span> mint {vibe.mintAddress.slice(0, 4)}…{vibe.mintAddress.slice(-4)}
+          </p>
+        )}
+        <p className="text-neutral-600 text-xs mt-2">{formattedTime}</p>
+        <p className="text-green-500 mt-4">
+          <span className="text-neutral-500">&gt;</span> for <span className="text-green-400">@{vibe.targetUsername}</span>
+        </p>
       </div>
 
       {/* Claim section */}
