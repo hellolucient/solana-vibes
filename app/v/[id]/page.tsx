@@ -18,7 +18,12 @@ export async function generateMetadata({
   const { id } = await params;
   const vibe = await vibeStore.getById(id);
   // Use stored imageUri if available, otherwise fallback
-  const imageUrl = vibe?.imageUri || getFallbackImageUrl(id);
+  // Add stable cache key based on vibe update time
+  const rawImageUrl = vibe?.imageUri || getFallbackImageUrl(id);
+  const cacheKey = vibe?.createdAt ? new Date(vibe.createdAt).getTime() : id;
+  const imageUrl = rawImageUrl.includes('?') 
+    ? `${rawImageUrl}&v=${cacheKey}` 
+    : `${rawImageUrl}?v=${cacheKey}`;
   
   // Code-style title for Twitter card
   const cardTitle = ">_";

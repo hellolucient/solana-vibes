@@ -354,6 +354,12 @@ export function VibeClaimClient({
           <p className="text-amber-400/60 text-xs text-center mt-1">
             Only @{targetUsername} can claim this vibe
           </p>
+          <a
+            href={`/api/auth/x/logout?return_to=${encodeURIComponent(`/v/${vibeId}`)}`}
+            className="block text-amber-400/80 text-xs text-center mt-3 underline hover:text-amber-400 transition-colors"
+          >
+            Not you? Sign out
+          </a>
         </div>
       ) : !connected ? (
         <button
