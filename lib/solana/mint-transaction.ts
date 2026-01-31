@@ -106,10 +106,10 @@ export async function buildMintTransaction({
     .setBlockhash(blockhash)
     .build(umi);
 
-  // Authority and asset signer need to sign
-  // The asset signer is needed because we're creating a new account
-  let signedTransaction = await authority.signTransaction(transaction);
-  signedTransaction = await assetSigner.signTransaction(signedTransaction);
+  // Asset signer needs to sign (creating a new account)
+  // Authority doesn't need to sign since sender pays for everything
+  // Sender will sign as fee payer on the frontend
+  const signedTransaction = await assetSigner.signTransaction(transaction);
 
   // Convert to web3.js transaction and serialize
   const web3Transaction = toWeb3JsTransaction(signedTransaction);
