@@ -46,6 +46,7 @@ interface VibeClaimClientProps {
   claimStatus: VibeClaimStatus;
   claimerWallet?: string;
   mintAddress?: string;
+  senderWallet?: string; // Masked wallet of the sender
 }
 
 export function VibeClaimClient({
@@ -54,6 +55,7 @@ export function VibeClaimClient({
   claimStatus: initialClaimStatus,
   claimerWallet: initialClaimerWallet,
   mintAddress,
+  senderWallet,
 }: VibeClaimClientProps) {
   const { publicKey, connected, signTransaction, disconnect } = useWallet();
   const { setVisible } = useWalletModal();
@@ -179,17 +181,55 @@ export function VibeClaimClient({
     }
   };
 
-  // Already claimed - show success status
+  // Get the vibe URL for sharing
+  const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
+  const vibeUrl = `${baseUrl}/v/${vibeId}`;
+
+  // Thank sender tweet text
+  const thankTweetText = `Just received a vibe on @solana! 💜 Thanks to wallet ${senderWallet || "a fellow Solana user"} for spreading the good vibes! ✨`;
+  const thankTweetUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(thankTweetText)}&url=${encodeURIComponent(vibeUrl)}`;
+
+  // Already claimed - show success status with pay-it-forward options
   if (claimStatus === "claimed") {
     return (
-      <div className="mt-6 p-4 rounded-xl bg-[#14F195]/10 border border-[#14F195]/20">
-        <div className="flex items-center justify-center gap-2 text-[#14F195]">
-          <CheckIcon className="w-5 h-5" />
-          <span className="font-medium">Claimed</span>
+      <div className="mt-6 space-y-4">
+        {/* Claimed status */}
+        <div className="p-4 rounded-xl bg-[#14F195]/10 border border-[#14F195]/20">
+          <div className="flex items-center justify-center gap-2 text-[#14F195]">
+            <CheckIcon className="w-5 h-5" />
+            <span className="font-medium">Claimed</span>
+          </div>
+          <p className="text-center text-white/40 text-sm mt-2">
+            by {claimerWallet?.slice(0, 4)}...{claimerWallet?.slice(-4)}
+          </p>
         </div>
-        <p className="text-center text-white/40 text-sm mt-2">
-          by {claimerWallet?.slice(0, 4)}...{claimerWallet?.slice(-4)}
-        </p>
+
+        {/* Pay it forward section */}
+        <div className="p-4 rounded-xl bg-gradient-to-br from-[#9945FF]/5 via-[#00D4FF]/5 to-[#14F195]/5 border border-white/5">
+          <p className="text-center text-white/60 text-sm mb-4">
+            Spread the vibes! 🌊
+          </p>
+          
+          {/* Thank the sender */}
+          <a
+            href={thankTweetUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-2 w-full py-3 px-4 rounded-xl bg-[#080808] border border-[#1a1a1a] text-white/70 hover:text-white hover:border-[#252525] hover:bg-[#0c0c0c] transition-all mb-3"
+          >
+            <XLogo />
+            <span>Thank the sender</span>
+          </a>
+          
+          {/* Send a vibe forward */}
+          <a
+            href="/"
+            className="flex items-center justify-center gap-2 w-full py-3 px-4 rounded-xl bg-gradient-to-r from-[#150d1f] to-[#0a1210] border border-[rgba(153,69,255,0.3)] text-white font-medium hover:from-[#1c1128] hover:to-[#0d1815] hover:border-[rgba(20,241,149,0.4)] hover:shadow-[0_0_15px_rgba(153,69,255,0.1),0_0_15px_rgba(20,241,149,0.1)] transition-all"
+          >
+            <span>✨</span>
+            <span>Pay it forward</span>
+          </a>
+        </div>
       </div>
     );
   }

@@ -12,6 +12,9 @@ export interface VibeRecord {
   maskedWallet: string; // first 3 + … + last 3
   createdAt: string; // ISO timestamp
 
+  // Vibe number - sequential count of all vibes created
+  vibeNumber?: number;
+
   // On-chain data (populated after mint)
   mintAddress?: string; // Metaplex Core asset address
   metadataUri?: string; // URI for metadata JSON
@@ -27,4 +30,5 @@ export interface IVibeStore {
   create(vibe: Omit<VibeRecord, "createdAt" | "claimStatus">): Promise<VibeRecord>;
   getById(id: string): Promise<VibeRecord | null>;
   update(id: string, updates: Partial<VibeRecord>): Promise<VibeRecord | null>;
+  getNextVibeNumber(): Promise<number>;
 }

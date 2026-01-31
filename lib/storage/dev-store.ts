@@ -32,6 +32,11 @@ async function writeVibes(vibes: VibeRecord[]) {
 }
 
 export const devVibeStore: IVibeStore = {
+  async getNextVibeNumber() {
+    const vibes = await readVibes();
+    return vibes.length + 1;
+  },
+
   async create(vibe) {
     const vibes = await readVibes();
     const record: VibeRecord = {

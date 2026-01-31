@@ -54,6 +54,9 @@ export default async function VibePage({ params }: { params: Promise<{ id: strin
   const vibe = await vibeStore.getById(id);
   if (!vibe) notFound();
 
+  // Use stored imageUri if available, otherwise fallback to base squiggly image
+  const vibeImageUrl = vibe.imageUri || "/media/vibes4b.png";
+
   const formattedTime = new Date(vibe.createdAt)
     .toISOString()
     .replace("T", " ")
@@ -63,40 +66,28 @@ export default async function VibePage({ params }: { params: Promise<{ id: strin
     <main className="min-h-screen bg-[#050505] flex flex-col items-center justify-center p-4">
       <div className="w-full max-w-md">
         {/* Title */}
-        <h1 className="text-2xl font-light tracking-wide text-center text-white/90 mb-8">
+        <h1 className="text-2xl font-light tracking-wide text-center text-white/90 mb-4">
           solana_vibes
         </h1>
 
-        {/* Vibe Card */}
-        <div className="rounded-2xl bg-gradient-to-br from-[#9945FF]/10 via-[#00D4FF]/5 to-[#14F195]/10 border border-white/10 p-6">
-          {/* Recipient */}
-          <div className="text-center mb-6">
-            <p className="text-white/40 text-sm mb-1">vibe for</p>
-            <p className="text-2xl font-medium text-[#14F195]">@{vibe.targetUsername}</p>
-          </div>
+        {/* Vibe Image - The squiggly lines! */}
+        <div className="mb-6">
+          <img 
+            src={vibeImageUrl} 
+            alt="Vibe" 
+            className="w-full rounded-xl"
+          />
+        </div>
 
-          {/* Divider */}
-          <div className="h-px bg-gradient-to-r from-transparent via-white/10 to-transparent mb-6" />
-
-          {/* Details */}
-          <div className="space-y-3 text-sm">
-            <div className="flex justify-between items-center">
-              <span className="text-white/40">from</span>
-              <span className="text-white/70 font-mono">{vibe.maskedWallet}</span>
-            </div>
-            {vibe.mintAddress && (
-              <div className="flex justify-between items-center">
-                <span className="text-white/40">mint</span>
-                <span className="text-white/70 font-mono">
-                  {vibe.mintAddress.slice(0, 6)}...{vibe.mintAddress.slice(-6)}
-                </span>
-              </div>
-            )}
-            <div className="flex justify-between items-center">
-              <span className="text-white/40">created</span>
-              <span className="text-white/50 text-xs">{formattedTime}</span>
-            </div>
-          </div>
+        {/* Terminal-style info */}
+        <div className="font-mono text-sm space-y-1 mb-2">
+          <p className="text-[#00ff00]">&gt; received solana_vibes</p>
+          <p className="text-[#00ff00]">&gt; verified by wallet {vibe.maskedWallet}</p>
+          {vibe.mintAddress && (
+            <p className="text-[#00ff00]">&gt; mint {vibe.mintAddress.slice(0, 4)}...{vibe.mintAddress.slice(-4)}</p>
+          )}
+          <p className="text-[#00ff00]/60">{formattedTime}</p>
+          <p className="text-[#00ff00]">&gt; for @{vibe.targetUsername}</p>
         </div>
 
         {/* Claim section */}
@@ -106,6 +97,7 @@ export default async function VibePage({ params }: { params: Promise<{ id: strin
           claimStatus={vibe.claimStatus}
           claimerWallet={vibe.claimerWallet}
           mintAddress={vibe.mintAddress}
+          senderWallet={vibe.maskedWallet}
         />
 
         {/* Back to home link */}

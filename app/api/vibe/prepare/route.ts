@@ -54,13 +54,18 @@ export async function POST(req: NextRequest) {
   const placeholderUri = `${baseUrl}/api/vibe/${vibeId}/metadata`;
 
   try {
-    // Step 1: Create pending vibe record
+    // Get next vibe number
+    const vibeNumber = await vibeStore.getNextVibeNumber();
+    console.log(`[vibe/create] Next vibe number: ${vibeNumber}`);
+
+    // Step 1: Create pending vibe record with vibe number
     const vibe = await vibeStore.create({
       id: vibeId,
       targetUserId: username,
       targetUsername: username,
       senderWallet,
       maskedWallet,
+      vibeNumber,
     });
 
     console.log(`[vibe/create] Created pending vibe: ${vibeId}`);
@@ -74,12 +79,13 @@ export async function POST(req: NextRequest) {
 
     console.log(`[vibe/create] NFT minted: ${mintAddress}`);
 
-    // Step 3: Generate final image with mint address
+    // Step 3: Generate final image with mint address and vibe number
     const imageBuffer = await generateVibeImageBuffer({
       maskedWallet,
       recipientHandle: username,
       mintAddress,
       timestamp,
+      vibeNumber,
     });
 
     // Step 4: Create and upload metadata
@@ -91,6 +97,7 @@ export async function POST(req: NextRequest) {
       mintAddress,
       timestamp,
       baseUrl,
+      vibeNumber,
     });
 
     const { imageUri, metadataUri } = await uploadVibeAssets({

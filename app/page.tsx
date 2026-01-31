@@ -49,6 +49,60 @@ const CheckIcon = () => (
   </svg>
 );
 
+// Floating orb with smooth wave motion and color transition
+const VibePulse = () => (
+  <div className="relative w-48 h-12 overflow-hidden">
+    <svg 
+      className="w-full h-full"
+      viewBox="0 0 200 50"
+      preserveAspectRatio="none"
+    >
+      <defs>
+        <filter id="glow">
+          <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+          <feMerge>
+            <feMergeNode in="coloredBlur"/>
+            <feMergeNode in="SourceGraphic"/>
+          </feMerge>
+        </filter>
+      </defs>
+      
+      {/* Traveling orb with color animation */}
+      <circle r="5" filter="url(#glow)">
+        {/* Color transition animation */}
+        <animate
+          attributeName="fill"
+          values="#9945FF;#00D4FF;#14F195;#00D4FF;#9945FF"
+          dur="2s"
+          repeatCount="indefinite"
+        />
+        {/* Follow smooth wave path */}
+        <animateMotion
+          dur="2s"
+          repeatCount="indefinite"
+          path="M 0,25 C 25,15 50,35 75,25 C 100,15 125,35 150,25 C 175,15 200,25 200,25"
+        />
+      </circle>
+      
+      {/* Subtle trail/afterglow */}
+      <circle r="3" opacity="0.4" filter="url(#glow)">
+        <animate
+          attributeName="fill"
+          values="#9945FF;#00D4FF;#14F195;#00D4FF;#9945FF"
+          dur="2s"
+          repeatCount="indefinite"
+        />
+        <animateMotion
+          dur="2s"
+          repeatCount="indefinite"
+          begin="-0.1s"
+          path="M 0,25 C 25,15 50,35 75,25 C 100,15 125,35 150,25 C 175,15 200,25 200,25"
+        />
+      </circle>
+    </svg>
+  </div>
+);
+
 export default function HomePage() {
   const { publicKey, connected, disconnect } = useWallet();
   const { setVisible } = useWalletModal();
@@ -96,6 +150,7 @@ export default function HomePage() {
     if (connected) {
       disconnect();
     } else {
+      // Show the wallet modal - Phantom will be auto-detected via Wallet Standard
       setVisible(true);
     }
   };
@@ -183,71 +238,101 @@ export default function HomePage() {
 
         {!created ? (
           <div className="space-y-4">
-            {/* Connect Wallet Button */}
-            <button
-              onClick={handleConnectWallet}
-              className="btn-connect-wallet w-full flex items-center justify-center gap-3 py-4 px-6 rounded-xl text-white font-medium"
-            >
-              <PhantomLogo />
-              <span>{connected ? `${publicKey?.toBase58().slice(0, 4)}...${publicKey?.toBase58().slice(-4)}` : "Connect wallet"}</span>
-              {connected && (
-                <span className="ml-auto text-vibe-teal">
-                  <CheckIcon />
-                </span>
-              )}
-            </button>
+            {/* Hide form elements while minting */}
+            {!loading ? (
+              <>
+                {/* Connect Wallet Button */}
+                <button
+                  onClick={handleConnectWallet}
+                  className="btn-connect-wallet w-full flex items-center justify-center gap-3 py-4 px-6 rounded-xl text-white font-medium"
+                >
+                  <PhantomLogo />
+                  <span>{connected ? `${publicKey?.toBase58().slice(0, 4)}...${publicKey?.toBase58().slice(-4)}` : "Connect wallet"}</span>
+                  {connected && (
+                    <span className="ml-auto text-vibe-teal">
+                      <CheckIcon />
+                    </span>
+                  )}
+                </button>
 
-            {/* Connect X Button */}
-            {xConnected ? (
-              <div className="btn-connect-x w-full flex items-center gap-3 py-4 px-6 rounded-xl text-white/80">
-                <XLogo />
-                <span>@{xConnected.username}</span>
-                <span className="ml-auto text-vibe-teal">
-                  <CheckIcon />
-                </span>
-              </div>
+                {/* Connect X Button */}
+                {xConnected ? (
+                  <div className="btn-connect-x w-full flex items-center gap-3 py-4 px-6 rounded-xl text-white/80">
+                    <XLogo />
+                    <span>@{xConnected.username}</span>
+                    <span className="ml-auto text-vibe-teal">
+                      <CheckIcon />
+                    </span>
+                  </div>
+                ) : (
+                  <a
+                    href={xAuthUrl}
+                    className="btn-connect-x w-full flex items-center justify-center gap-3 py-4 px-6 rounded-xl text-white/60 hover:text-white/80"
+                  >
+                    <XLogo />
+                    <span>Connect X</span>
+                  </a>
+                )}
+
+                {/* Send Vibe Section */}
+                <div className="pt-4">
+                  <label className="block text-sm text-white/50 mb-2">
+                    Send a vibe to
+                  </label>
+                  <input
+                    type="text"
+                    value={targetHandle}
+                    onChange={(e) => {
+                      setTargetHandle(e.target.value);
+                      setError(null);
+                    }}
+                    placeholder="@username"
+                    className="input-vibe w-full px-4 py-4 rounded-xl text-white text-base"
+                  />
+                </div>
+
+                {/* Send Vibe Button */}
+                <div className="relative group">
+                  <button
+                    type="button"
+                    onClick={sendVibe}
+                    disabled={!connected || !targetHandle.trim()}
+                    className="btn-send-vibe w-full py-4 rounded-xl text-white font-medium text-base"
+                  >
+                    send vibe
+                  </button>
+                  
+                  {/* Tooltip for disabled state */}
+                  {(!connected || !targetHandle.trim()) && (
+                    <div className="absolute -top-10 left-1/2 -translate-x-1/2 px-3 py-1.5 bg-[#1a1a1a] border border-white/10 rounded-lg text-xs text-white/70 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                      {!connected 
+                        ? "Connect wallet first" 
+                        : "Enter a username"}
+                    </div>
+                  )}
+                </div>
+
+                {/* Cost Indicator */}
+              </>
             ) : (
-              <a
-                href={xAuthUrl}
-                className="btn-connect-x w-full flex items-center justify-center gap-3 py-4 px-6 rounded-xl text-white/60 hover:text-white/80"
-              >
-                <XLogo />
-                <span>Connect X</span>
-              </a>
+              /* Minting state - heartbeat pulse and message */
+              <div className="py-12 flex flex-col items-center gap-6">
+                <VibePulse />
+                <div className="text-center">
+                  <p className="text-white/70 font-medium mb-1">minting...</p>
+                  <p className="text-white/30 text-sm">
+                    Creating your vibe on Solana
+                  </p>
+                </div>
+              </div>
             )}
 
-            {/* Send Vibe Section */}
-            <div className="pt-4">
-              <label className="block text-sm text-white/50 mb-2">
-                Send a vibe to
-              </label>
-              <input
-                type="text"
-                value={targetHandle}
-                onChange={(e) => {
-                  setTargetHandle(e.target.value);
-                  setError(null);
-                }}
-                placeholder="@username"
-                disabled={loading}
-                className="input-vibe w-full px-4 py-4 rounded-xl text-white text-base disabled:opacity-50"
-              />
-            </div>
-
-            {/* Send Vibe Button */}
-            <button
-              type="button"
-              onClick={sendVibe}
-              disabled={!connected || !targetHandle.trim() || loading}
-              className="btn-send-vibe w-full py-4 rounded-xl text-white font-medium text-base"
-            >
-              {loading ? "minting..." : "send vibe"}
-            </button>
-
-            {/* Cost Indicator */}
-            <p className="text-center text-white/30 text-sm">
-              ~0.005 SOL total
-            </p>
+            {/* Cost Indicator - only show when not loading */}
+            {!loading && (
+              <p className="text-center text-white/30 text-sm">
+                ~0.005 SOL total
+              </p>
+            )}
 
             {error && (
               <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20">

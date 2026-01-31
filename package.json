@@ -9,6 +9,9 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@fontsource/comfortaa": "^5.2.8",
+    "@fontsource/nunito": "^5.2.7",
+    "@fontsource/quicksand": "^5.2.10",
     "@metaplex-foundation/mpl-core": "^1.7.0",
     "@metaplex-foundation/umi": "^1.4.1",
     "@metaplex-foundation/umi-bundle-defaults": "^1.4.1",

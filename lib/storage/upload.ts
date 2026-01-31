@@ -151,23 +151,35 @@ export function createVibeMetadata(params: {
   mintAddress: string;
   timestamp: string;
   baseUrl: string;
+  vibeNumber?: number;
 }): VibeMetadata {
-  const { vibeId, recipientHandle, senderWallet, maskedWallet, mintAddress, timestamp, baseUrl } =
+  const { vibeId, recipientHandle, maskedWallet, mintAddress, timestamp, baseUrl, vibeNumber } =
     params;
 
   const handle = recipientHandle.startsWith("@") ? recipientHandle : `@${recipientHandle}`;
+  const nameWithNumber = vibeNumber ? `Vibe #${vibeNumber} for ${handle}` : `Vibe for ${handle}`;
+  const descWithNumber = vibeNumber
+    ? `solana_vibes #${vibeNumber} sent to ${handle}. Verified by wallet ${maskedWallet}.`
+    : `A solana_vibe sent to ${handle}. Verified by wallet ${maskedWallet}.`;
+
+  const attributes = [
+    { trait_type: "Recipient", value: handle },
+    { trait_type: "Sender Wallet", value: maskedWallet },
+    { trait_type: "Mint", value: mintAddress },
+    { trait_type: "Created", value: timestamp },
+    { trait_type: "Status", value: "pending" },
+  ];
+
+  // Add vibe number if available
+  if (vibeNumber) {
+    attributes.unshift({ trait_type: "Vibe Number", value: `#${vibeNumber}` });
+  }
 
   return {
-    name: `Vibe for ${handle}`,
-    description: `A solana_vibe sent to ${handle}. Verified by wallet ${maskedWallet}.`,
+    name: nameWithNumber,
+    description: descWithNumber,
     image: "", // Will be set during upload
     external_url: `${baseUrl}/v/${vibeId}`,
-    attributes: [
-      { trait_type: "Recipient", value: handle },
-      { trait_type: "Sender Wallet", value: maskedWallet },
-      { trait_type: "Mint", value: mintAddress },
-      { trait_type: "Created", value: timestamp },
-      { trait_type: "Status", value: "pending" },
-    ],
+    attributes,
   };
 }

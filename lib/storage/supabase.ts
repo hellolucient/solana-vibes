@@ -24,6 +24,7 @@ interface VibeRow {
   sender_wallet: string;
   masked_wallet: string;
   created_at: string;
+  vibe_number: number | null;
   mint_address: string | null;
   metadata_uri: string | null;
   image_uri: string | null;
@@ -41,6 +42,7 @@ function rowToRecord(row: VibeRow): VibeRecord {
     senderWallet: row.sender_wallet,
     maskedWallet: row.masked_wallet,
     createdAt: row.created_at,
+    vibeNumber: row.vibe_number ?? undefined,
     mintAddress: row.mint_address ?? undefined,
     metadataUri: row.metadata_uri ?? undefined,
     imageUri: row.image_uri ?? undefined,
@@ -59,6 +61,7 @@ function recordToRow(record: Partial<VibeRecord>): Partial<VibeRow> {
   if (record.targetUsername !== undefined) row.target_username = record.targetUsername;
   if (record.senderWallet !== undefined) row.sender_wallet = record.senderWallet;
   if (record.maskedWallet !== undefined) row.masked_wallet = record.maskedWallet;
+  if (record.vibeNumber !== undefined) row.vibe_number = record.vibeNumber;
   if (record.mintAddress !== undefined) row.mint_address = record.mintAddress;
   if (record.metadataUri !== undefined) row.metadata_uri = record.metadataUri;
   if (record.imageUri !== undefined) row.image_uri = record.imageUri;
@@ -70,6 +73,22 @@ function recordToRow(record: Partial<VibeRecord>): Partial<VibeRow> {
 }
 
 export const vibeStore: IVibeStore = {
+  async getNextVibeNumber() {
+    // Get the current count of vibes to determine the next number
+    const { count, error } = await supabase
+      .from("vibes")
+      .select("*", { count: "exact", head: true });
+
+    if (error) {
+      console.error("[Supabase] Count error:", error);
+      // Default to 1 if count fails
+      return 1;
+    }
+
+    // Next vibe number is count + 1
+    return (count ?? 0) + 1;
+  },
+
   async create(vibe) {
     const row: Omit<VibeRow, "created_at"> = {
       id: vibe.id,
@@ -77,6 +96,7 @@ export const vibeStore: IVibeStore = {
       target_username: vibe.targetUsername,
       sender_wallet: vibe.senderWallet,
       masked_wallet: vibe.maskedWallet,
+      vibe_number: vibe.vibeNumber ?? null,
       mint_address: vibe.mintAddress ?? null,
       metadata_uri: vibe.metadataUri ?? null,
       image_uri: vibe.imageUri ?? null,
