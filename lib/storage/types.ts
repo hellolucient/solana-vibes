@@ -30,5 +30,6 @@ export interface IVibeStore {
   create(vibe: Omit<VibeRecord, "createdAt" | "claimStatus">): Promise<VibeRecord>;
   getById(id: string): Promise<VibeRecord | null>;
   update(id: string, updates: Partial<VibeRecord>): Promise<VibeRecord | null>;
+  delete(id: string): Promise<void>;
   getNextVibeNumber(): Promise<number>;
 }
