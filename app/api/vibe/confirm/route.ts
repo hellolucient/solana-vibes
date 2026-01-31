@@ -75,17 +75,33 @@ export async function POST(req: NextRequest) {
 
     console.log(`[vibe/confirm] Transaction sent: ${signature}`);
 
-    // Step 3: Wait for confirmation
-    const confirmation = await connection.confirmTransaction({
-      signature,
-      blockhash,
-      lastValidBlockHeight,
-    });
-
-    if (confirmation.value.err) {
-      console.error("[vibe/confirm] Transaction failed:", confirmation.value.err);
+    // Step 3: Wait for confirmation using polling (WebSocket doesn't work on Vercel)
+    let confirmed = false;
+    const maxAttempts = 30;
+    
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      const status = await connection.getSignatureStatus(signature);
+      
+      if (status.value?.confirmationStatus === "confirmed" || 
+          status.value?.confirmationStatus === "finalized") {
+        if (status.value.err) {
+          console.error("[vibe/confirm] Transaction failed:", status.value.err);
+          return NextResponse.json(
+            { error: "Transaction failed on-chain" },
+            { status: 500 }
+          );
+        }
+        confirmed = true;
+        break;
+      }
+      
+      // Wait 1 second before next poll
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+    
+    if (!confirmed) {
       return NextResponse.json(
-        { error: "Transaction failed on-chain" },
+        { error: "Transaction confirmation timeout" },
         { status: 500 }
       );
     }
