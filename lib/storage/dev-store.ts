@@ -63,4 +63,10 @@ export const devVibeStore: IVibeStore = {
     await writeVibes(vibes);
     return vibes[index];
   },
+
+  async delete(id: string) {
+    const vibes = await readVibes();
+    const filtered = vibes.filter((v) => v.id !== id);
+    await writeVibes(filtered);
+  },
 };
