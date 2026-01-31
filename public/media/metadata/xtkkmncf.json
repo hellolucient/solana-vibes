@@ -1,0 +1,32 @@
+{
+  "name": "Vibe #18 for @hellolucient",
+  "description": "solana_vibes #18 sent to @hellolucient. Verified by wallet C5R…JVQ.",
+  "image": "http://localhost:3000/media/vibes/xtkkmncf.png",
+  "external_url": "http://localhost:3000/v/xtkkmncf",
+  "attributes": [
+    {
+      "trait_type": "Vibe Number",
+      "value": "#18"
+    },
+    {
+      "trait_type": "Recipient",
+      "value": "@hellolucient"
+    },
+    {
+      "trait_type": "Sender Wallet",
+      "value": "C5R…JVQ"
+    },
+    {
+      "trait_type": "Mint",
+      "value": "AwZARDRJyzPT3VPcHE4bcGaVLSxQUd4CPfxEKGToSQJ7"
+    },
+    {
+      "trait_type": "Created",
+      "value": "2026-01-31T01:24:00.504Z"
+    },
+    {
+      "trait_type": "Status",
+      "value": "pending"
+    }
+  ]
+}

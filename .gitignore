@@ -42,3 +42,6 @@ Thumbs.db
 *.tsbuildinfo
 next-env.d.ts
 authority.json
+mainnet-authority.json
+treasury-keypair.json
+*-keypair.json

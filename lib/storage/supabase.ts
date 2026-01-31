@@ -72,6 +72,29 @@ function recordToRow(record: Partial<VibeRecord>): Partial<VibeRow> {
   return row;
 }
 
+// Check if a username has already been vibed
+export async function getVibeByUsername(username: string): Promise<VibeRecord | null> {
+  const normalizedUsername = username.replace(/^@/, "").toLowerCase();
+  
+  const { data, error } = await supabase
+    .from("vibes")
+    .select()
+    .ilike("target_username", normalizedUsername)
+    .limit(1)
+    .single();
+
+  if (error) {
+    // No vibe found is expected, not an error
+    if (error.code === "PGRST116") {
+      return null;
+    }
+    console.error("[Supabase] getVibeByUsername error:", error);
+    return null;
+  }
+
+  return rowToRecord(data as VibeRow);
+}
+
 export const vibeStore: IVibeStore = {
   async getNextVibeNumber() {
     // Get the current count of vibes to determine the next number

@@ -100,13 +100,6 @@ export default async function VibePage({ params }: { params: Promise<{ id: strin
           senderWallet={vibe.maskedWallet}
         />
 
-        {/* Back to home link */}
-        <a
-          href="/"
-          className="block mt-8 text-center text-white/30 hover:text-white/50 text-sm transition-colors"
-        >
-          send your own vibe
-        </a>
       </div>
     </main>
   );

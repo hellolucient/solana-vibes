@@ -4,6 +4,7 @@
  * Returns a partially-signed transaction that:
  * 1. Transfers the NFT from vault to claimer
  * 2. Updates the on-chain status attribute to "claimed"
+ * 3. Transfers micro-fee to treasury
  * 
  * The claimer signs as fee payer and submits.
  */
@@ -13,6 +14,7 @@ import { cookies } from "next/headers";
 import { vibeStore } from "@/lib/storage/supabase";
 import { isVibeInVault } from "@/lib/solana/mint";
 import { buildClaimTransaction } from "@/lib/solana/claim-transaction";
+import { getClaimFeeLamports } from "@/lib/solana/config";
 import { X_USER_COOKIE } from "@/lib/x-oauth-1";
 
 export async function POST(req: NextRequest) {
@@ -117,7 +119,11 @@ export async function POST(req: NextRequest) {
       claimerWallet,
     });
 
-    console.log(`[vibe/claim/prepare] Transaction built, returning to client`);
+    // Get fee info for display
+    const claimFeeLamports = getClaimFeeLamports();
+    const claimFeeSol = Number(claimFeeLamports) / 1_000_000_000;
+
+    console.log(`[vibe/claim/prepare] Transaction built with ${claimFeeSol} SOL fee, returning to client`);
 
     return NextResponse.json({
       transaction: serializedTransaction,
@@ -125,6 +131,9 @@ export async function POST(req: NextRequest) {
       lastValidBlockHeight,
       vibeId,
       mintAddress: vibe.mintAddress,
+      // Fee info for frontend display
+      feeLamports: claimFeeLamports.toString(),
+      feeSol: claimFeeSol,
     });
   } catch (e) {
     console.error("[vibe/claim/prepare] Error:", e);

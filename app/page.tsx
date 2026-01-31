@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useWallet } from "@solana/wallet-adapter-react";
+import { useWallet, useConnection } from "@solana/wallet-adapter-react";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
+import { VersionedTransaction } from "@solana/web3.js";
 
 // Phantom logo SVG component
 const PhantomLogo = () => (
@@ -104,12 +105,14 @@ const VibePulse = () => (
 );
 
 export default function HomePage() {
-  const { publicKey, connected, disconnect } = useWallet();
+  const { publicKey, connected, disconnect, signTransaction } = useWallet();
   const { setVisible } = useWalletModal();
+  const { connection } = useConnection();
   const [xConnected, setXConnected] = useState<{ username: string | null; needsRefresh?: boolean } | null>(null);
   const [targetHandle, setTargetHandle] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [alreadyVibed, setAlreadyVibed] = useState<{ username: string; senderWallet: string } | null>(null);
   const [created, setCreated] = useState<{ vibeId: string; vibeUrl: string; mintAddress: string } | null>(null);
   const [oauthError, setOauthError] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -157,7 +160,7 @@ export default function HomePage() {
 
   const sendVibe = async () => {
     setError(null);
-    if (!publicKey) {
+    if (!publicKey || !signTransaction) {
       setError("Connect wallet first.");
       return;
     }
@@ -168,9 +171,11 @@ export default function HomePage() {
     }
 
     setLoading(true);
+    setAlreadyVibed(null);
 
     try {
-      const res = await fetch("/api/vibe/prepare", {
+      // Step 1: Prepare the transaction (backend builds and partially signs)
+      const prepareRes = await fetch("/api/vibe/prepare", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -178,13 +183,52 @@ export default function HomePage() {
           senderWallet: publicKey.toBase58(),
         }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Failed to create vibe");
+      const prepareData = await prepareRes.json();
+      
+      // Check if user was already vibed
+      if (prepareData.error === "already_vibed") {
+        setAlreadyVibed({
+          username: handle.startsWith("@") ? handle : `@${handle}`,
+          senderWallet: prepareData.senderWallet,
+        });
+        setLoading(false);
+        return;
+      }
+      
+      if (!prepareRes.ok) throw new Error(prepareData.error ?? "Failed to prepare vibe");
+
+      console.log(`[sendVibe] Prepared vibe ${prepareData.vibeId}, fee: ${prepareData.feeSol} SOL`);
+
+      // Step 2: Deserialize and sign the transaction with user's wallet
+      const transactionBuffer = Buffer.from(prepareData.transaction, "base64");
+      const transaction = VersionedTransaction.deserialize(transactionBuffer);
+
+      // User signs as fee payer
+      const signedTransaction = await signTransaction(transaction);
+      const serializedSigned = Buffer.from(signedTransaction.serialize()).toString("base64");
+
+      console.log("[sendVibe] Transaction signed, submitting...");
+
+      // Step 3: Submit the signed transaction to the backend for confirmation
+      const confirmRes = await fetch("/api/vibe/confirm", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          vibeId: prepareData.vibeId,
+          signedTransaction: serializedSigned,
+          blockhash: prepareData.blockhash,
+          lastValidBlockHeight: prepareData.lastValidBlockHeight,
+        }),
+      });
+      const confirmData = await confirmRes.json();
+      if (!confirmRes.ok) throw new Error(confirmData.error ?? "Failed to confirm vibe");
+
+      console.log(`[sendVibe] Vibe confirmed: ${confirmData.vibeUrl}`);
 
       setCreated({
-        vibeId: data.vibeId,
-        vibeUrl: data.vibeUrl,
-        mintAddress: data.mintAddress,
+        vibeId: confirmData.vibeId,
+        vibeUrl: confirmData.vibeUrl,
+        mintAddress: confirmData.mintAddress,
       });
     } catch (e) {
       console.error("sendVibe error:", e);
@@ -212,6 +256,7 @@ export default function HomePage() {
     setCreated(null);
     setTargetHandle("");
     setError(null);
+    setAlreadyVibed(null);
     setCopied(false);
   };
 
@@ -285,6 +330,7 @@ export default function HomePage() {
                     onChange={(e) => {
                       setTargetHandle(e.target.value);
                       setError(null);
+                      setAlreadyVibed(null);
                     }}
                     placeholder="@username"
                     className="input-vibe w-full px-4 py-4 rounded-xl text-white text-base"
@@ -315,28 +361,38 @@ export default function HomePage() {
                 {/* Cost Indicator */}
               </>
             ) : (
-              /* Minting state - heartbeat pulse and message */
-              <div className="py-12 flex flex-col items-center gap-6">
-                <VibePulse />
-                <div className="text-center">
-                  <p className="text-white/70 font-medium mb-1">minting...</p>
-                  <p className="text-white/30 text-sm">
-                    Creating your vibe on Solana
-                  </p>
+              /* Minting state - green indicator box with spinner */
+              <div className="py-8 flex flex-col items-center gap-6">
+                {/* Green minting indicator box */}
+                <div className="px-6 py-3 rounded-xl bg-vibe-teal/10 border border-vibe-teal/30">
+                  <p className="text-vibe-teal font-medium">minting</p>
                 </div>
+                <VibePulse />
+                <p className="text-white/30 text-sm">...vibing</p>
               </div>
             )}
 
             {/* Cost Indicator - only show when not loading */}
             {!loading && (
               <p className="text-center text-white/30 text-sm">
-                ~0.005 SOL total
+                ~0.002 SOL
               </p>
             )}
 
             {error && (
               <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20">
                 <p className="text-red-400 text-sm text-center">{error}</p>
+              </div>
+            )}
+
+            {alreadyVibed && (
+              <div className="p-4 rounded-xl bg-[#00D4FF]/10 border border-[#00D4FF]/30">
+                <p className="text-[#00D4FF] text-sm text-center font-medium mb-1">
+                  {alreadyVibed.username} already vibed
+                </p>
+                <p className="text-white/40 text-xs text-center">
+                  by {alreadyVibed.senderWallet}
+                </p>
               </div>
             )}
           </div>
@@ -349,7 +405,7 @@ export default function HomePage() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
               </div>
-              <h2 className="text-xl font-medium text-white mb-2">Vibe sent!</h2>
+              <h2 className="text-xl font-medium text-white mb-2">vibe ready...</h2>
               <p className="text-white/50 text-sm mb-4">
                 Your vibe has been minted on Solana
               </p>

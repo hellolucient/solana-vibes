@@ -1,103 +1,192 @@
-# Solana Vibes
+# solana_vibes
 
-Send an anonymous, wallet-verified “Solana vibe” to someone on X (Twitter). Trigger deploy. The sender’s identity is anonymous except for a masked Solana wallet address embedded in an animated GIF that unfurls when the link is posted on X.
+Send good vibes to anyone on X. Each vibe is a unique NFT on Solana that lives in their wallet forever.
 
-## Run locally
+## What it does
 
-1. **Install dependencies**
+1. **Sender** connects their wallet and X account, enters a recipient's X handle
+2. A unique NFT is minted on Solana with a custom generated image
+3. Sender shares the claim link with the recipient
+4. **Recipient** connects their X (to verify identity) and wallet (to receive the NFT)
+5. NFT transfers to their wallet - theirs forever
 
-   ```bash
-   npm install
-   ```
+**Key features:**
+- Each X user can only receive one vibe (scarcity)
+- Sender pays all transaction fees + a small micro-fee
+- Claimer pays a small claim fee
+- NFTs are Metaplex Core assets with on-chain attributes
 
-2. **Base GIF**
-
-   Place your base animation at:
-
-   ```
-   public/media/base_pill.gif
-   ```
-
-   (e.g. use `solana_pill_multi_jolt_ultra_clean_tilted.gif` renamed or copied to `base_pill.gif`.) The GIF should have a black background, 4 sharp jolts then settle, clean edges. Generated vibe GIFs overlay footer text on every frame.
-
-3. **Environment**
-
-   Create `.env.local`:
-
-   ```env
-   # Solana RPC (optional; defaults to devnet)
-   NEXT_PUBLIC_SOLANA_RPC=https://api.devnet.solana.com
-
-   # X (Twitter) OAuth 2.0 – create app at https://developer.twitter.com/
-   X_CLIENT_ID=your_client_id
-   X_CLIENT_SECRET=your_client_secret
-   X_REDIRECT_URI=http://localhost:3000/api/auth/x/callback
-
-   # Public app URL (required for X card unfurl and “Post to X” link)
-   NEXT_PUBLIC_APP_URL=http://localhost:3000
-   ```
-
-   For production, set `NEXT_PUBLIC_APP_URL` to your deployed URL (e.g. `https://your-domain.com`).
-
-4. **Dev server**
-
-   ```bash
-   npm run dev
-   ```
-
-   Open [http://localhost:3000](http://localhost:3000).
-
-### Troubleshooting: `npm install` fails on `canvas`
-
-GIF generation uses the `canvas` package (native deps). If install fails with `pkg-config: command not found` or canvas build errors:
-
-**macOS (Homebrew):**
+## Quick Start
 
 ```bash
-brew install pkg-config cairo pango libpng jpeg giflib librsvg pixman
+# Install dependencies
+npm install
+
+# Set up environment (see Environment section below)
+cp .env.example .env.local
+# Edit .env.local with your values
+
+# Run dev server
+npm run dev
 ```
 
-Then run `npm install` again. If you skip this, the app still installs and runs (canvas is optional); “Send Vibe” will fail with a clear error until canvas is installed.
+Open [http://localhost:3000](http://localhost:3000)
 
-**Node version:** Some deps prefer Node `>= 20.19.0`. If you see engine warnings, upgrading Node (e.g. `nvm install 20` then `nvm use 20`) is optional but can clear them.
+## Environment Variables
 
-## Flow
+Create `.env.local` with:
 
-1. User opens app → connects Solana wallet (Phantom) → connects X (OAuth).
-2. User searches for an X account (type username; X API v2 does exact lookup).
-3. User selects target → clicks “Send Vibe”.
-4. App creates a vibe record, generates a unique animated GIF with masked wallet footer, and returns a public URL `/v/[id]`.
-5. User clicks “Post to X” → opens Twitter Web Intent with only the vibe URL; they post from their own account.
-6. When the tweet is posted, the X card unfurls the animated GIF.
+```env
+# Solana RPC
+NEXT_PUBLIC_SOLANA_RPC=https://mainnet.helius-rpc.com/?api-key=YOUR_KEY
 
-## Tech
+# Authority wallet (signs NFT operations)
+VIBE_AUTHORITY_SECRET=base58_encoded_secret_key
 
-- **Next.js 14+** (App Router, TypeScript), **Tailwind CSS**
-- **Solana**: wallet adapter (Phantom)
-- **X**: OAuth 2.0 PKCE; user lookup only (no API tweet posting)
-- **GIF**: base GIF + footer overlay per frame (gifuct-js, node canvas, gif-encoder-2)
-- **Storage**: dev = JSON file under `data/`; interfaces allow swapping to Supabase later
+# Treasury wallet (receives micro-fees)
+TREASURY_WALLET=your_treasury_public_key
 
-## TODO markers in codebase
+# Fees in lamports
+MINT_FEE_LAMPORTS=2000000   # 0.002 SOL
+CLAIM_FEE_LAMPORTS=1000000  # 0.001 SOL
 
-- **Storage**: Replace `lib/storage/dev-store.ts` and `IVibeStore` usage with Supabase (and/or R2 for GIFs) when moving off dev storage.
-- **Abuse / rate limiting**: Add rate limits and abuse prevention (e.g. per wallet / per IP) before production.
-- **Wallet message signing**: Optional: require a wallet signature when creating a vibe to prove ownership of the wallet.
-- **X OAuth fallback**: Optional: allow manual X handle entry when OAuth is not configured or user skips connect (e.g. type target handle instead of search).
+# X (Twitter) OAuth 1.0a
+X_API_KEY=your_api_key
+X_API_SECRET=your_api_secret
+
+# Supabase
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_ANON_KEY=your_anon_key
+
+# Vercel Blob (image/metadata storage)
+BLOB_READ_WRITE_TOKEN=your_blob_token
+
+# Public app URL
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+```
+
+## Database
+
+Uses Supabase with a `vibes` table:
+
+| Column | Type | Description |
+|--------|------|-------------|
+| id | text | Unique vibe ID |
+| target_username | text | Recipient's X handle |
+| sender_wallet | text | Sender's wallet address |
+| masked_wallet | text | Masked version (C5R…JVQ) |
+| mint_address | text | NFT mint address |
+| vibe_number | int | Sequential vibe number |
+| claim_status | text | "pending" or "claimed" |
+| claimer_wallet | text | Wallet that claimed |
+| claimed_at | timestamp | When claimed |
+| created_at | timestamp | When created |
+
+## Scripts
+
+```bash
+# Burn unclaimed vibes (reads from database)
+node scripts/burn-vibes.mjs --dry-run  # Preview
+node scripts/burn-vibes.mjs            # Actually burn
+
+# Check Irys/Arweave balance (if using Arweave)
+node scripts/check-irys-balance.js
+
+# Fund Irys account (if using Arweave)
+node scripts/fund-irys.js
+```
 
 ## Routes
 
-| Route | Purpose |
-|-------|--------|
-| `GET /` | Main app: wallet, X connect, search, send vibe, post to X |
-| `GET /v/[id]` | Public vibe page: same animated GIF + footer + timestamp |
-| `GET /api/auth/x` | Start X OAuth (redirect to X) |
-| `GET /api/auth/x/callback` | X OAuth callback; set cookie, redirect to `/` |
-| `GET /api/auth/x/me` | Current X user (or 401) |
-| `GET /api/x/search-users?q=` | X user lookup (requires X cookie) |
-| `POST /api/vibe/create` | Create vibe + GIF; body: `targetUserId`, `targetUsername`, `senderWallet` |
-| `GET /api/vibe/[id]` | Get vibe JSON (debug) |
+### Pages
+| Route | Description |
+|-------|-------------|
+| `/` | Main app - send vibes |
+| `/v/[id]` | Claim page for a specific vibe |
+| `/guide` | How it works guide |
 
-## X card unfurl
+### API - Minting
+| Route | Method | Description |
+|-------|--------|-------------|
+| `/api/vibe/prepare` | POST | Build mint transaction (sender signs) |
+| `/api/vibe/confirm` | POST | Submit signed tx, generate image, update NFT |
 
-`/v/[id]` sets `twitter:card=summary_large_image` and `twitter:image` / `og:image` to the vibe GIF URL. Set `NEXT_PUBLIC_APP_URL` so the image URL is absolute (e.g. `https://your-domain.com/media/vibes/[id].gif`).
+### API - Claiming
+| Route | Method | Description |
+|-------|--------|-------------|
+| `/api/vibe/claim/prepare` | POST | Build claim transaction |
+| `/api/vibe/claim/confirm` | POST | Update database after claim |
+
+### API - Auth
+| Route | Method | Description |
+|-------|--------|-------------|
+| `/api/auth/x` | GET | Start X OAuth flow |
+| `/api/auth/x/callback` | GET | OAuth callback |
+| `/api/auth/x/me` | GET | Get current X user |
+| `/api/auth/x/logout` | POST | Clear X session |
+
+## Tech Stack
+
+- **Framework**: Next.js 14 (App Router, TypeScript)
+- **Styling**: Tailwind CSS
+- **Blockchain**: Solana (Metaplex Core NFTs)
+- **Wallet**: Solana Wallet Adapter (Phantom, etc.)
+- **Database**: Supabase (PostgreSQL)
+- **Storage**: Vercel Blob (images, metadata)
+- **Auth**: X OAuth 1.0a
+
+## Transaction Flow
+
+### Minting (Sender Pays)
+1. Frontend calls `/api/vibe/prepare` with target username
+2. Backend creates pending vibe, builds transaction with:
+   - Create NFT instruction
+   - Micro-fee transfer to treasury
+3. Backend partially signs (authority), returns to frontend
+4. Frontend signs (sender as fee payer), calls `/api/vibe/confirm`
+5. Backend submits tx, generates image, uploads to Blob, updates NFT metadata
+
+### Claiming (Claimer Pays)
+1. Frontend calls `/api/vibe/claim/prepare` with wallet address
+2. Backend builds transaction with:
+   - Transfer NFT instruction
+   - Claim fee transfer to treasury
+3. Backend partially signs (authority), returns to frontend
+4. Frontend signs (claimer as fee payer), submits transaction
+5. Frontend calls `/api/vibe/claim/confirm` to update database
+
+## Production Reset
+
+To start fresh:
+
+1. **Burn existing NFTs** (unclaimed ones):
+   ```bash
+   node scripts/burn-vibes.mjs
+   ```
+
+2. **Wipe database** (Supabase SQL Editor):
+   ```sql
+   DELETE FROM vibes;
+   ```
+
+3. **Burn claimed NFTs** manually from your wallet (Phantom → Collectibles → NFT → Burn)
+
+Numbering automatically restarts from #1.
+
+## Troubleshooting
+
+### `npm install` fails on `canvas`
+```bash
+# macOS
+brew install pkg-config cairo pango libpng jpeg giflib librsvg pixman
+npm install
+```
+
+### X OAuth not working
+- Ensure callback URL in X Developer Portal matches your `NEXT_PUBLIC_APP_URL`
+- For localhost: `http://localhost:3000/api/auth/x/callback`
+
+### NFT not showing image
+- Check Vercel Blob token is set
+- Check image was uploaded (logs show URL)
+- NFT metadata URI must be accessible

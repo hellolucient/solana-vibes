@@ -1,16 +1,51 @@
 /**
  * Image and metadata upload for vibes.
  * 
- * Uses Vercel Blob for persistent storage in production.
- * Falls back to local filesystem for local development.
+ * Storage is determined by network:
+ * - Mainnet: Irys/Arweave (permanent, decentralized)
+ * - Devnet: Vercel Blob or local filesystem
+ * 
+ * Both IRYS_WALLET_SECRET and BLOB_READ_WRITE_TOKEN can be set,
+ * and the code will pick the right one based on the Solana network.
  */
 
 import { put } from "@vercel/blob";
 import { writeFile, mkdir } from "fs/promises";
 import path from "path";
+import { uploadToIrys } from "./irys";
+import { isMainnet } from "../solana/config";
 
-// Check if we should use Vercel Blob (when BLOB_READ_WRITE_TOKEN is set)
-const USE_BLOB = !!process.env.BLOB_READ_WRITE_TOKEN;
+/**
+ * Determine which storage backend to use based on network and available credentials.
+ * 
+ * TODO: Re-enable Irys once we fix the upload persistence issue.
+ * For now, using Vercel Blob on all networks for reliability.
+ */
+function getStorageBackend(): "irys" | "blob" | "local" {
+  // Temporarily disabled Irys due to upload persistence issues
+  // const hasIrys = !!process.env.IRYS_WALLET_SECRET;
+  const hasIrys = false; // TEMP: Force disable Irys
+  const hasBlob = !!process.env.BLOB_READ_WRITE_TOKEN;
+  const mainnet = isMainnet();
+
+  if (mainnet) {
+    // Mainnet: use Blob for now (Irys disabled temporarily)
+    if (hasIrys) {
+      return "irys";
+    }
+    if (hasBlob) {
+      console.log("[Upload] Using Vercel Blob on mainnet");
+      return "blob";
+    }
+    throw new Error("Mainnet requires BLOB_READ_WRITE_TOKEN for storage (Irys temporarily disabled)");
+  } else {
+    // Devnet: prefer Blob, fallback to local
+    if (hasBlob) {
+      return "blob";
+    }
+    return "local";
+  }
+}
 
 // Local directories for dev
 const VIBES_DIR = path.join(process.cwd(), "public", "media", "vibes");
@@ -38,7 +73,9 @@ export interface UploadResult {
 
 /**
  * Upload vibe image and metadata.
- * Uses Vercel Blob in production, local filesystem in dev.
+ * Automatically picks storage based on network:
+ * - Mainnet → Irys/Arweave
+ * - Devnet → Vercel Blob or local
  */
 export async function uploadVibeAssets(params: {
   vibeId: string;
@@ -46,12 +83,18 @@ export async function uploadVibeAssets(params: {
   metadata: VibeMetadata;
   baseUrl: string;
 }): Promise<UploadResult> {
-  const { vibeId, imageBuffer, metadata, baseUrl } = params;
+  const { vibeId, imageBuffer, metadata } = params;
+  const backend = getStorageBackend();
 
-  if (USE_BLOB) {
-    return uploadToBlobStorage(params);
-  } else {
-    return uploadToLocalFilesystem(params);
+  console.log(`[Upload] Using ${backend} storage for ${vibeId}`);
+
+  switch (backend) {
+    case "irys":
+      return uploadToIrys({ vibeId, imageBuffer, metadata });
+    case "blob":
+      return uploadToBlobStorage(params);
+    case "local":
+      return uploadToLocalFilesystem(params);
   }
 }
 
@@ -167,7 +210,6 @@ export function createVibeMetadata(params: {
     { trait_type: "Sender Wallet", value: maskedWallet },
     { trait_type: "Mint", value: mintAddress },
     { trait_type: "Created", value: timestamp },
-    { trait_type: "Status", value: "pending" },
   ];
 
   // Add vibe number if available

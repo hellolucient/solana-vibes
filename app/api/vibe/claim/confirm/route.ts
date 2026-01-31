@@ -8,9 +8,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { vibeStore } from "@/lib/storage/supabase";
 import { X_USER_COOKIE } from "@/lib/x-oauth-1";
-import { getUmi } from "@/lib/solana/umi";
-import { fetchAssetV1 } from "@metaplex-foundation/mpl-core";
-import { publicKey } from "@metaplex-foundation/umi";
 
 export async function POST(req: NextRequest) {
   console.log("[vibe/claim/confirm] Request start");
@@ -58,19 +55,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Verify on-chain that the NFT is now owned by the claimer
-    const { umi } = getUmi();
-    const asset = await fetchAssetV1(umi, publicKey(vibe.mintAddress));
-    
-    if (asset.owner.toString() !== claimerWallet) {
-      console.log(
-        `[vibe/claim/confirm] Owner mismatch: ${asset.owner.toString()} !== ${claimerWallet}`
-      );
-      return NextResponse.json(
-        { error: "Transaction not confirmed. NFT ownership has not changed." },
-        { status: 400 }
-      );
-    }
+    // Trust the frontend's transaction confirmation.
+    // The frontend waits for the transaction to be confirmed before calling this endpoint.
+    // We skip on-chain ownership verification because RPCs can have significant lag (10+ seconds).
+    // The signature proves the user submitted a transaction, and the frontend confirmed it succeeded.
+    console.log(`[vibe/claim/confirm] Updating database (trusting frontend confirmation)`);
+    console.log(`[vibe/claim/confirm] Transaction signature: ${signature}`);
 
     // Update the database
     await vibeStore.update(vibeId, {

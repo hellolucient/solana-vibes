@@ -40,6 +40,78 @@ const CheckIcon = ({ className = "" }: { className?: string }) => (
   </svg>
 );
 
+// Solana-themed spinning arc icon
+const SolanaArc = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" className="animate-spin" style={{ animationDuration: '2s' }}>
+    <defs>
+      <linearGradient id="solana-arc-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#9945FF" />
+        <stop offset="50%" stopColor="#00D4FF" />
+        <stop offset="100%" stopColor="#14F195" />
+      </linearGradient>
+    </defs>
+    <path
+      d="M12 2a10 10 0 0 1 10 10"
+      fill="none"
+      stroke="url(#solana-arc-gradient)"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+    />
+  </svg>
+);
+
+// Wave pulse animation for loading states
+const VibePulse = () => (
+  <div className="relative w-48 h-12 overflow-hidden">
+    <svg 
+      className="w-full h-full"
+      viewBox="0 0 200 50"
+      preserveAspectRatio="none"
+    >
+      <defs>
+        <filter id="glow-claim">
+          <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+          <feMerge>
+            <feMergeNode in="coloredBlur"/>
+            <feMergeNode in="SourceGraphic"/>
+          </feMerge>
+        </filter>
+      </defs>
+      
+      {/* Traveling orb with color animation */}
+      <circle r="5" filter="url(#glow-claim)">
+        <animate
+          attributeName="fill"
+          values="#9945FF;#00D4FF;#14F195;#00D4FF;#9945FF"
+          dur="2s"
+          repeatCount="indefinite"
+        />
+        <animateMotion
+          dur="2s"
+          repeatCount="indefinite"
+          path="M 0,25 C 25,15 50,35 75,25 C 100,15 125,35 150,25 C 175,15 200,25 200,25"
+        />
+      </circle>
+      
+      {/* Subtle trail/afterglow */}
+      <circle r="3" opacity="0.4" filter="url(#glow-claim)">
+        <animate
+          attributeName="fill"
+          values="#9945FF;#00D4FF;#14F195;#00D4FF;#9945FF"
+          dur="2s"
+          repeatCount="indefinite"
+        />
+        <animateMotion
+          dur="2s"
+          repeatCount="indefinite"
+          begin="-0.1s"
+          path="M 0,25 C 25,15 50,35 75,25 C 100,15 125,35 150,25 C 175,15 200,25 200,25"
+        />
+      </circle>
+    </svg>
+  </div>
+);
+
 interface VibeClaimClientProps {
   vibeId: string;
   targetUsername: string;
@@ -67,6 +139,7 @@ export function VibeClaimClient({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [showClaimFlow, setShowClaimFlow] = useState(false);
+  const [claimFeeSol, setClaimFeeSol] = useState<number | null>(null);
 
   // Check if user is logged in with X
   useEffect(() => {
@@ -122,6 +195,11 @@ export function VibeClaimClient({
 
       if (!prepareRes.ok) {
         throw new Error(prepareData.error ?? "Failed to prepare claim");
+      }
+
+      // Store fee info for display
+      if (prepareData.feeSol) {
+        setClaimFeeSol(prepareData.feeSol);
       }
 
       // Step 2: Deserialize and sign the transaction
@@ -226,8 +304,8 @@ export function VibeClaimClient({
             href="/"
             className="flex items-center justify-center gap-2 w-full py-3 px-4 rounded-xl bg-gradient-to-r from-[#150d1f] to-[#0a1210] border border-[rgba(153,69,255,0.3)] text-white font-medium hover:from-[#1c1128] hover:to-[#0d1815] hover:border-[rgba(20,241,149,0.4)] hover:shadow-[0_0_15px_rgba(153,69,255,0.1),0_0_15px_rgba(20,241,149,0.1)] transition-all"
           >
-            <span>✨</span>
-            <span>Pay it forward</span>
+            <SolanaArc />
+            <span>Send your own vibe</span>
           </a>
         </div>
       </div>
@@ -285,15 +363,28 @@ export function VibeClaimClient({
           <PhantomLogo />
           <span>Connect wallet</span>
         </button>
+      ) : claiming ? (
+        <div className="py-8 flex flex-col items-center gap-6">
+          {/* Green claiming indicator box */}
+          <div className="px-6 py-3 rounded-xl bg-[#14F195]/10 border border-[#14F195]/30">
+            <p className="text-[#14F195] font-medium">claiming</p>
+          </div>
+          <VibePulse />
+          <p className="text-white/30 text-sm">...vibing</p>
+        </div>
       ) : (
-        <button
-          type="button"
-          onClick={handleClaim}
-          disabled={claiming}
-          className="w-full py-4 rounded-xl bg-gradient-to-r from-[#150d1f] to-[#0a1210] border border-[rgba(153,69,255,0.3)] text-white font-medium disabled:opacity-40 transition-all hover:from-[#1c1128] hover:to-[#0d1815] hover:border-[rgba(20,241,149,0.4)] hover:shadow-[0_0_15px_rgba(153,69,255,0.1),0_0_15px_rgba(20,241,149,0.1)] hover:-translate-y-0.5 disabled:hover:transform-none disabled:hover:shadow-none"
-        >
-          {claiming ? "claiming..." : "confirm claim"}
-        </button>
+        <div className="space-y-2">
+          <button
+            type="button"
+            onClick={handleClaim}
+            className="w-full py-4 rounded-xl bg-gradient-to-r from-[#150d1f] to-[#0a1210] border border-[rgba(153,69,255,0.3)] text-white font-medium transition-all hover:from-[#1c1128] hover:to-[#0d1815] hover:border-[rgba(20,241,149,0.4)] hover:shadow-[0_0_15px_rgba(153,69,255,0.1),0_0_15px_rgba(20,241,149,0.1)] hover:-translate-y-0.5"
+          >
+            confirm claim
+          </button>
+          <p className="text-center text-white/30 text-xs">
+            Claim fee: ~0.001 SOL
+          </p>
+        </div>
       )}
 
       {error && (
