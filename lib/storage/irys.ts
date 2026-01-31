@@ -131,7 +131,7 @@ export async function uploadToIrys(params: {
 export async function getIrysBalance(): Promise<string> {
   const irys = await getIrys();
   const balance = await irys.getLoadedBalance();
-  return irys.utils.fromAtomic(balance);
+  return irys.utils.fromAtomic(balance).toString();
 }
 
 /**
@@ -140,5 +140,5 @@ export async function getIrysBalance(): Promise<string> {
 export async function estimateUploadCost(sizeBytes: number): Promise<string> {
   const irys = await getIrys();
   const price = await irys.getPrice(sizeBytes);
-  return irys.utils.fromAtomic(price);
+  return irys.utils.fromAtomic(price).toString();
 }
