@@ -181,4 +181,18 @@ export const vibeStore: IVibeStore = {
 
     return data ? rowToRecord(data as VibeRow) : null;
   },
+
+  async delete(id: string) {
+    const { error } = await supabase
+      .from("vibes")
+      .delete()
+      .eq("id", id);
+
+    if (error) {
+      console.error("[Supabase] Delete error:", error);
+      throw new Error(`Failed to delete vibe: ${error.message}`);
+    }
+
+    console.log(`[Supabase] Deleted vibe: ${id}`);
+  },
 };

@@ -86,6 +86,8 @@ export async function POST(req: NextRequest) {
           status.value?.confirmationStatus === "finalized") {
         if (status.value.err) {
           console.error("[vibe/confirm] Transaction failed:", status.value.err);
+          // Clean up the failed vibe record
+          await vibeStore.delete(vibeId);
           return NextResponse.json(
             { error: "Transaction failed on-chain" },
             { status: 500 }
@@ -100,6 +102,8 @@ export async function POST(req: NextRequest) {
     }
     
     if (!confirmed) {
+      // Clean up on timeout - transaction may have failed
+      await vibeStore.delete(vibeId);
       return NextResponse.json(
         { error: "Transaction confirmation timeout" },
         { status: 500 }
@@ -172,6 +176,12 @@ export async function POST(req: NextRequest) {
     });
   } catch (e) {
     console.error("[vibe/confirm] Error:", e);
+    // Clean up the failed vibe record
+    try {
+      await vibeStore.delete(body.vibeId);
+    } catch (deleteErr) {
+      console.error("[vibe/confirm] Failed to cleanup:", deleteErr);
+    }
     return NextResponse.json(
       { error: e instanceof Error ? e.message : "Failed to confirm vibe" },
       { status: 500 }
