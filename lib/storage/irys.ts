@@ -13,7 +13,8 @@
  */
 
 import Irys from "@irys/sdk";
-import bs58 from "bs58";
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const bs58 = require("bs58");
 
 let irysInstance: Irys | null = null;
 
@@ -32,7 +33,7 @@ async function getIrys(): Promise<Irys> {
   }
 
   // Decode base58 secret to Uint8Array
-  const secretKey = bs58.default.decode(walletSecret);
+  const secretKey = bs58.decode(walletSecret);
 
   // Determine network based on RPC
   const rpcUrl = process.env.NEXT_PUBLIC_SOLANA_RPC || "https://api.devnet.solana.com";
