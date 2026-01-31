@@ -375,7 +375,7 @@ export default function HomePage() {
             {/* Cost Indicator - only show when not loading */}
             {!loading && (
               <p className="text-center text-white/30 text-sm">
-                ~0.002 SOL
+                ~0.006 SOL
               </p>
             )}
 
