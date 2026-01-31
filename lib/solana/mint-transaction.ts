@@ -61,11 +61,13 @@ export async function buildMintTransaction({
 
   // Build create NFT instruction
   // The asset is owned by the authority (vault) until claimed
+  // Sender pays for the account rent (payer field)
   const createBuilder = create(umi, {
     asset: assetSigner,
     name: `Vibe for @${recipientHandle}`,
     uri: metadataUri,
     owner: authority.publicKey, // Authority owns until claimed
+    payer: senderSigner, // Sender pays for NFT account rent
     plugins: [
       {
         // Attributes plugin stores on-chain metadata about the vibe
