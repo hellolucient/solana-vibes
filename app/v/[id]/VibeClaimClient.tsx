@@ -5,6 +5,12 @@ import { useWallet, useConnection } from "@solana/wallet-adapter-react";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
 import { VersionedTransaction } from "@solana/web3.js";
 import type { VibeClaimStatus } from "@/lib/storage/types";
+import { NoWalletConnectHelp } from "@/components/NoWalletConnectHelp";
+
+function isMobileBrowser(): boolean {
+  if (typeof navigator === "undefined") return false;
+  return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+}
 
 // X (Twitter) logo SVG component
 const XLogo = () => (
@@ -129,8 +135,9 @@ export function VibeClaimClient({
   mintAddress,
   senderWallet,
 }: VibeClaimClientProps) {
-  const { publicKey, connected, signTransaction, disconnect } = useWallet();
+  const { publicKey, connected, signTransaction, disconnect, wallets } = useWallet();
   const { setVisible } = useWalletModal();
+  const [showNoWalletHelp, setShowNoWalletHelp] = useState(false);
   const { connection } = useConnection();
   const [xUser, setXUser] = useState<{ username: string } | null>(null);
   const [claimStatus, setClaimStatus] = useState(initialClaimStatus);
@@ -175,6 +182,8 @@ export function VibeClaimClient({
       } else {
         setConfirmDisconnect(true);
       }
+    } else if (wallets.length === 0 && isMobileBrowser()) {
+      setShowNoWalletHelp(true);
     } else {
       setVisible(true);
     }
@@ -384,17 +393,22 @@ export function VibeClaimClient({
           </a>
         </div>
       ) : !connected || confirmDisconnect ? (
-        <button
-          onClick={handleConnectWallet}
-          className="flex items-center justify-center gap-3 w-full py-4 px-6 rounded-xl bg-gradient-to-r from-[#120a1a] to-[#0a1210] border border-[rgba(153,69,255,0.3)] text-white font-medium hover:from-[#1a0f24] hover:to-[#0d1815] hover:border-[rgba(153,69,255,0.5)] hover:shadow-[0_0_10px_rgba(153,69,255,0.1)] transition-all"
-        >
-          <PhantomLogo />
-          <span>
-            {connected && confirmDisconnect
-              ? "Tap again to disconnect"
-              : "Connect wallet"}
-          </span>
-        </button>
+        <>
+          <button
+            onClick={handleConnectWallet}
+            className="flex items-center justify-center gap-3 w-full py-4 px-6 rounded-xl bg-gradient-to-r from-[#120a1a] to-[#0a1210] border border-[rgba(153,69,255,0.3)] text-white font-medium hover:from-[#1a0f24] hover:to-[#0d1815] hover:border-[rgba(153,69,255,0.5)] hover:shadow-[0_0_10px_rgba(153,69,255,0.1)] transition-all"
+          >
+            <PhantomLogo />
+            <span>
+              {connected && confirmDisconnect
+                ? "Tap again to disconnect"
+                : "Connect wallet"}
+            </span>
+          </button>
+          {showNoWalletHelp && (
+            <NoWalletConnectHelp onClose={() => setShowNoWalletHelp(false)} />
+          )}
+        </>
       ) : claiming ? (
         <div className="py-8 flex flex-col items-center gap-6">
           {/* Green claiming indicator box */}

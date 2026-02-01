@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { useWallet, useConnection } from "@solana/wallet-adapter-react";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
 import { VersionedTransaction } from "@solana/web3.js";
+import { NoWalletConnectHelp } from "@/components/NoWalletConnectHelp";
 
 // Phantom logo SVG component
 const PhantomLogo = () => (
@@ -105,9 +106,15 @@ const VibePulse = () => (
   </div>
 );
 
+function isMobileBrowser(): boolean {
+  if (typeof navigator === "undefined") return false;
+  return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+}
+
 export default function HomePage() {
-  const { publicKey, connected, disconnect, signTransaction } = useWallet();
+  const { publicKey, connected, disconnect, signTransaction, wallets } = useWallet();
   const { setVisible } = useWalletModal();
+  const [showNoWalletHelp, setShowNoWalletHelp] = useState(false);
   const { connection } = useConnection();
   const [xConnected, setXConnected] = useState<{ username: string | null; needsRefresh?: boolean } | null>(null);
   const [targetHandle, setTargetHandle] = useState("");
@@ -205,6 +212,8 @@ export default function HomePage() {
       } else {
         setTapAgainFor("wallet");
       }
+    } else if (wallets.length === 0 && isMobileBrowser()) {
+      setShowNoWalletHelp(true);
     } else {
       setVisible(true);
     }
@@ -369,6 +378,11 @@ export default function HomePage() {
                     </span>
                   )}
                 </button>
+
+                {/* No wallet on mobile (e.g. iOS Safari) — show Open in Phantom / Get Phantom */}
+                {showNoWalletHelp && (
+                  <NoWalletConnectHelp onClose={() => setShowNoWalletHelp(false)} />
+                )}
 
                 {/* Connect X Button */}
                 {xConnected ? (
