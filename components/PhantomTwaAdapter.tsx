@@ -40,28 +40,8 @@ export class PhantomTwaAdapter extends BaseWalletAdapter<"Phantom (in-app)"> {
     super();
     if (typeof window !== "undefined" && isAndroidTWA()) {
       this._readyState = WalletReadyState.Installed;
-      
-      // Check if we're returning from Phantom callback - don't restore session yet,
-      // let WalletCallbackHandler process the callback first
-      if (isWalletCallbackPending()) {
-        console.log("[PhantomTwaAdapter] Callback pending, skipping session restore");
-        return;
-      }
-      
-      const stored = getStoredPhantomSession();
-      if (stored) {
-        try {
-          this._publicKey = new SolanaPublicKey(stored.publicKey);
-          console.log("[PhantomTwaAdapter] Restored session for", stored.publicKey);
-          // Don't emit connect here - the wallet adapter library will check publicKey
-          // and recognize we're already connected
-        } catch (err) {
-          console.error("[PhantomTwaAdapter] Failed to restore session:", err);
-          clearStoredPhantomSession();
-        }
-      } else {
-        console.log("[PhantomTwaAdapter] No stored session found");
-      }
+      console.log("[PhantomTwaAdapter] Initialized, readyState: Installed");
+      // Don't restore session here - let connect() handle it so we can properly emit events
     }
   }
 
@@ -80,8 +60,14 @@ export class PhantomTwaAdapter extends BaseWalletAdapter<"Phantom (in-app)"> {
   async connect(): Promise<void> {
     console.log("[PhantomTwaAdapter] connect() called, publicKey:", this._publicKey?.toBase58(), "connecting:", this._connecting);
     
-    if (this._connecting || this._publicKey) {
-      console.log("[PhantomTwaAdapter] Already connected or connecting, skipping");
+    if (this._connecting) {
+      console.log("[PhantomTwaAdapter] Already connecting, skipping");
+      return;
+    }
+    
+    if (this._publicKey) {
+      console.log("[PhantomTwaAdapter] Already have publicKey, emitting connect");
+      this.emit("connect", this._publicKey);
       return;
     }
     
@@ -90,17 +76,31 @@ export class PhantomTwaAdapter extends BaseWalletAdapter<"Phantom (in-app)"> {
       return;
     }
 
-    // If there's a callback pending flag but we're not on a callback URL, it's stale - clear it
-    // This can happen if a previous connection attempt failed or was cancelled
+    // Check if we're on a callback URL - let the callback handler process it
     const params = new URLSearchParams(window.location.search);
-    if (params.get("wallet_callback") !== "1") {
-      setCallbackPending(false);
-    } else {
-      // We ARE on a callback URL - let the callback handler process it, don't redirect
+    if (params.get("wallet_callback") === "1") {
       console.log("[PhantomTwaAdapter] On callback URL, letting handler process it");
       return;
     }
+    
+    // Clear any stale pending flag
+    setCallbackPending(false);
 
+    // Check for stored session - if we have one, restore it instead of redirecting
+    const stored = getStoredPhantomSession();
+    if (stored) {
+      try {
+        this._publicKey = new SolanaPublicKey(stored.publicKey);
+        console.log("[PhantomTwaAdapter] Restored session for", stored.publicKey);
+        this.emit("connect", this._publicKey);
+        return;
+      } catch (err) {
+        console.error("[PhantomTwaAdapter] Failed to restore session:", err);
+        clearStoredPhantomSession();
+      }
+    }
+
+    // No stored session - redirect to Phantom to connect
     this._connecting = true;
     this.emit("readyStateChange", WalletReadyState.Installed);
 
@@ -118,7 +118,7 @@ export class PhantomTwaAdapter extends BaseWalletAdapter<"Phantom (in-app)"> {
       console.log("[PhantomTwaAdapter] Redirecting to Phantom:", url);
       window.location.href = url;
       // Page will navigate away; when user returns, callback handler will store session
-      // and we'll pick it up on next load via getStoredPhantomSession in constructor.
+      // and we'll pick it up on next connect() call.
     } catch (err) {
       setCallbackPending(false);
       this.emit("error", err instanceof WalletError ? err : new WalletError(String(err), err));

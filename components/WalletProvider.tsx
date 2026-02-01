@@ -10,7 +10,7 @@ import {
   registerMwa,
 } from "@solana-mobile/wallet-standard-mobile";
 import "@solana/wallet-adapter-react-ui/styles.css";
-import { isAndroidTWA, isWalletCallbackPending, getStoredPhantomSession } from "@/lib/phantom-twa";
+import { isAndroidTWA } from "@/lib/phantom-twa";
 import { PhantomTwaAdapter } from "@/components/PhantomTwaAdapter";
 import { WalletCallbackHandler } from "@/components/WalletCallbackHandler";
 
@@ -89,23 +89,17 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     return [];
   }, []);
 
-  // In TWA: Only autoConnect if we have a stored session AND we're not processing a callback.
-  // This prevents the app from auto-redirecting to Phantom on every load.
+  // In TWA: Disable autoConnect - user must tap Connect Wallet button.
+  // This prevents auto-redirecting to Phantom on every load.
+  // The connect() method will restore any stored session when called.
   // Outside TWA: Always autoConnect (standard wallet behavior).
   const shouldAutoConnect = useMemo(() => {
     if (typeof window === "undefined") return true;
-    if (!isAndroidTWA()) return true;
-    
-    // Don't autoConnect if we're processing a callback
-    if (isWalletCallbackPending()) {
-      console.log("[WalletProvider] Callback pending, disabling autoConnect");
+    if (isAndroidTWA()) {
+      console.log("[WalletProvider] TWA detected, autoConnect disabled");
       return false;
     }
-    
-    // Only autoConnect if we already have a stored session
-    const hasSession = !!getStoredPhantomSession();
-    console.log("[WalletProvider] TWA autoConnect:", hasSession ? "enabled (has session)" : "disabled (no session)");
-    return hasSession;
+    return true;
   }, []);
 
   return (
