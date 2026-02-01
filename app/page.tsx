@@ -219,10 +219,26 @@ export default function HomePage() {
     }
   };
 
-  // Debug: Show available wallets
-  const handleDebugWallets = () => {
+  // Debug: Show available wallets and try direct connect
+  const handleDebugConnect = async () => {
     const walletNames = wallets.map(w => `${w.adapter.name} (${w.readyState})`).join(", ");
-    alert("Available wallets: " + (walletNames || "None from wallets array - check MWA registration"));
+    alert("Available wallets: " + (walletNames || "None"));
+    
+    // Find MWA wallet and try to connect directly
+    const mwaWallet = wallets.find(w => w.adapter.name.toLowerCase().includes("mobile"));
+    if (mwaWallet) {
+      alert(`Found: ${mwaWallet.adapter.name}, attempting direct connect...`);
+      try {
+        // First select the wallet
+        await mwaWallet.adapter.connect();
+        alert("Connect succeeded! PublicKey: " + mwaWallet.adapter.publicKey?.toBase58());
+      } catch (err) {
+        alert("Connect error: " + String(err));
+        console.error("MWA connect error:", err);
+      }
+    } else {
+      alert("No MWA wallet found in array");
+    }
   };
 
   const handleXClick = () => {
@@ -390,13 +406,13 @@ export default function HomePage() {
                   <NoWalletConnectHelp onClose={() => setShowNoWalletHelp(false)} />
                 )}
 
-                {/* DEBUG: Show available wallets */}
+                {/* DEBUG: Direct MWA connect */}
                 {!connected && (
                   <button
-                    onClick={handleDebugWallets}
+                    onClick={handleDebugConnect}
                     className="w-full py-3 px-6 rounded-xl bg-purple-600 text-white font-medium text-sm"
                   >
-                    DEBUG: Show Wallets
+                    DEBUG: Direct MWA Connect
                   </button>
                 )}
 
