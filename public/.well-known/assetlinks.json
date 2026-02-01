@@ -3,9 +3,9 @@
     "relation": ["delegate_permission/common.handle_all_urls"],
     "target": {
       "namespace": "android_app",
-      "package_name": "com.solanavibes.app",
+      "package_name": "app.vercel.solana_vibes.twa",
       "sha256_cert_fingerprints": [
-        "AA:BB:CC:DD:EE:FF:11:22:33:44:55:66:77:88:99:00:AA:BB:CC:DD:EE:FF:11:22:33:44:55:66:77:88:99:00"
+        "26:E1:9E:CD:F1:EA:3E:60:16:99:0D:0E:86:BA:B1:D0:24:C3:E9:68:1B:F2:09:84:5B:D2:4C:D5:E2:1C:1E:0B"
       ]
     }
   }

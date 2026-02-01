@@ -51,3 +51,5 @@ android/android.keystore
 android/keystore.properties
 android/releases/
 android/local.properties
+android/.gradle/
+android/app/build/

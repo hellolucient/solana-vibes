@@ -1,41 +1,50 @@
 {
-  "packageId": "com.solanavibes.app",
-  "host": "your-production-domain.com",
+  "packageId": "app.vercel.solana_vibes.twa",
+  "host": "solana-vibes.vercel.app",
   "name": "Solana Vibes",
   "launcherName": "Solana Vibes",
   "display": "standalone",
-  "themeColor": "#9945FF",
-  "themeColorDark": "#050505",
-  "navigationColor": "#050505",
-  "navigationColorDark": "#050505",
-  "navigationDividerColor": "#050505",
-  "navigationDividerColorDark": "#050505",
+  "themeColor": "#050505",
+  "themeColorDark": "#000000",
+  "navigationColor": "#000000",
+  "navigationColorDark": "#000000",
+  "navigationDividerColor": "#000000",
+  "navigationDividerColorDark": "#000000",
   "backgroundColor": "#050505",
   "enableNotifications": true,
-  "startUrl": "/",
-  "iconUrl": "https://your-production-domain.com/media/vibe_icon.png",
-  "maskableIconUrl": "https://your-production-domain.com/media/vibe_icon.png",
+  "startUrl": "https://solana-vibes.vercel.app/",
+  "iconUrl": "https://solana-vibes.vercel.app/media/vibe_icon.png",
+  "maskableIconUrl": "https://solana-vibes.vercel.app/media/vibe_icon.png",
   "splashScreenFadeOutDuration": 300,
   "signingKey": {
-    "path": "android.keystore",
+    "path": "/Users/trentmunday/solana_vibes/android/android.keystore",
     "alias": "android"
   },
   "appVersionName": "1",
   "appVersionCode": 1,
   "shortcuts": [],
   "generatorApp": "bubblewrap-cli",
-  "webManifestUrl": "https://your-production-domain.com/manifest.json",
+  "webManifestUrl": "https://solana-vibes.vercel.app/manifest.json",
   "fallbackType": "customtabs",
-  "features": {
-    "locationDelegation": {
-      "enabled": false
-    }
+  "features": {},
+  "alphaDependencies": {
+    "enabled": false
   },
+  "enableSiteSettingsShortcut": true,
+  "isChromeOSOnly": false,
+  "isMetaQuest": false,
+  "fullScopeUrl": "https://solana-vibes.vercel.app/",
   "minSdkVersion": 21,
   "orientation": "portrait",
-  "fingerprints": [
-    {
-      "sha256Fingerprint": "AA:BB:CC:DD:EE:FF:11:22:33:44:55:66:77:88:99:00:AA:BB:CC:DD:EE:FF:11:22:33:44:55:66:77:88:99:00"
-    }
-  ]
+  "fingerprints": [],
+  "additionalTrustedOrigins": [],
+  "retainedBundles": [],
+  "protocolHandlers": [],
+  "fileHandlers": [],
+  "launchHandlerClientMode": "",
+  "displayOverride": [
+    "standalone",
+    "minimal-ui"
+  ],
+  "appVersion": "1"
 }
