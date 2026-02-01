@@ -247,58 +247,30 @@ export function VibeClaimClient({
         throw new Error("Wallet signing failed: " + (signErr instanceof Error ? signErr.message : String(signErr)));
       }
 
-      // Step 3: Send the transaction
-      console.log("[Claim] Sending transaction to RPC...");
-      let signature: string;
-      try {
-        signature = await connection.sendRawTransaction(
-          signedTransaction.serialize(),
-          { skipPreflight: false }
-        );
-        console.log("[Claim] Transaction sent:", signature);
-      } catch (sendErr) {
-        console.error("[Claim] Send failed:", sendErr);
-        throw new Error("Failed to send transaction: " + (sendErr instanceof Error ? sendErr.message : String(sendErr)));
-      }
-
-      // Step 4: Wait for confirmation
-      console.log("[Claim] Waiting for confirmation...");
-      try {
-        const confirmation = await connection.confirmTransaction({
-          signature,
-          blockhash: prepareData.blockhash,
-          lastValidBlockHeight: prepareData.lastValidBlockHeight,
-        });
-
-        if (confirmation.value.err) {
-          console.error("[Claim] Transaction failed on-chain:", confirmation.value.err);
-          throw new Error("Transaction failed on-chain");
-        }
-        console.log("[Claim] Transaction confirmed:", signature);
-      } catch (confirmErr) {
-        console.error("[Claim] Confirmation failed:", confirmErr);
-        // Transaction might have succeeded but confirmation timed out
-        // Continue to backend confirmation which will verify
-        console.log("[Claim] Proceeding to backend confirmation despite error...");
-      }
-
-      // Step 5: Confirm with backend to update database
+      // Step 3: Send signed transaction to backend (backend sends to RPC)
+      // This avoids client-side RPC issues on mobile
+      console.log("[Claim] Sending signed transaction to backend...");
+      const serializedSigned = Buffer.from(signedTransaction.serialize()).toString("base64");
+      
       const confirmRes = await fetch("/api/vibe/claim/confirm", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           vibeId,
           claimerWallet: publicKey.toBase58(),
-          signature,
+          signedTransaction: serializedSigned,
+          blockhash: prepareData.blockhash,
+          lastValidBlockHeight: prepareData.lastValidBlockHeight,
         }),
       });
 
       const confirmData = await confirmRes.json();
 
       if (!confirmRes.ok) {
-        // Transaction succeeded but DB update failed - not critical
-        console.warn("DB update failed:", confirmData.error);
+        throw new Error(confirmData.error || "Failed to confirm claim");
       }
+      
+      console.log("[Claim] Transaction confirmed:", confirmData.signature);
 
       setClaimStatus("claimed");
       setClaimerWallet(publicKey.toBase58());

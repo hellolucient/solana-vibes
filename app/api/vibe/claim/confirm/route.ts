@@ -1,13 +1,15 @@
 /**
- * Confirm a claim after the user has submitted the transaction.
+ * Confirm a claim: receive signed transaction from client, send to RPC, update database.
  * 
- * Verifies the transaction succeeded on-chain and updates the database.
+ * The backend handles sending to RPC to avoid client-side RPC issues on mobile.
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
+import { Connection, VersionedTransaction } from "@solana/web3.js";
 import { vibeStore } from "@/lib/storage/supabase";
 import { X_USER_COOKIE } from "@/lib/x-oauth-1";
+import { getRpcUrl } from "@/lib/solana/config";
 
 export async function POST(req: NextRequest) {
   console.log("[vibe/claim/confirm] Request start");
@@ -26,17 +28,23 @@ export async function POST(req: NextRequest) {
   }
 
   // Parse request body
-  let body: { vibeId: string; claimerWallet: string; signature: string };
+  let body: { 
+    vibeId: string; 
+    claimerWallet: string; 
+    signedTransaction: string;
+    blockhash: string;
+    lastValidBlockHeight: number;
+  };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const { vibeId, claimerWallet, signature } = body;
-  if (!vibeId || !claimerWallet || !signature) {
+  const { vibeId, claimerWallet, signedTransaction, blockhash, lastValidBlockHeight } = body;
+  if (!vibeId || !claimerWallet || !signedTransaction) {
     return NextResponse.json(
-      { error: "Missing vibeId, claimerWallet, or signature" },
+      { error: "Missing vibeId, claimerWallet, or signedTransaction" },
       { status: 400 }
     );
   }
@@ -55,12 +63,37 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Trust the frontend's transaction confirmation.
-    // The frontend waits for the transaction to be confirmed before calling this endpoint.
-    // We skip on-chain ownership verification because RPCs can have significant lag (10+ seconds).
-    // The signature proves the user submitted a transaction, and the frontend confirmed it succeeded.
-    console.log(`[vibe/claim/confirm] Updating database (trusting frontend confirmation)`);
-    console.log(`[vibe/claim/confirm] Transaction signature: ${signature}`);
+    // Deserialize the signed transaction
+    const transactionBuffer = Buffer.from(signedTransaction, "base64");
+    const transaction = VersionedTransaction.deserialize(transactionBuffer);
+
+    // Send to RPC from backend (avoids mobile client RPC issues)
+    const connection = new Connection(getRpcUrl(), "confirmed");
+    
+    console.log(`[vibe/claim/confirm] Sending transaction to RPC...`);
+    const signature = await connection.sendRawTransaction(transaction.serialize(), {
+      skipPreflight: false,
+      maxRetries: 3,
+    });
+    console.log(`[vibe/claim/confirm] Transaction sent: ${signature}`);
+
+    // Wait for confirmation
+    console.log(`[vibe/claim/confirm] Waiting for confirmation...`);
+    const confirmation = await connection.confirmTransaction({
+      signature,
+      blockhash,
+      lastValidBlockHeight,
+    }, "confirmed");
+
+    if (confirmation.value.err) {
+      console.error(`[vibe/claim/confirm] Transaction failed:`, confirmation.value.err);
+      return NextResponse.json(
+        { error: "Transaction failed on-chain" },
+        { status: 500 }
+      );
+    }
+
+    console.log(`[vibe/claim/confirm] Transaction confirmed: ${signature}`);
 
     // Update the database
     await vibeStore.update(vibeId, {
