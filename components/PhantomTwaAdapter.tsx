@@ -90,9 +90,14 @@ export class PhantomTwaAdapter extends BaseWalletAdapter<"Phantom (in-app)"> {
       return;
     }
 
-    // If we're in the middle of processing a callback, don't redirect again
-    if (isWalletCallbackPending()) {
-      console.log("[PhantomTwaAdapter] Callback pending, not redirecting to Phantom");
+    // If there's a callback pending flag but we're not on a callback URL, it's stale - clear it
+    // This can happen if a previous connection attempt failed or was cancelled
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("wallet_callback") !== "1") {
+      setCallbackPending(false);
+    } else {
+      // We ARE on a callback URL - let the callback handler process it, don't redirect
+      console.log("[PhantomTwaAdapter] On callback URL, letting handler process it");
       return;
     }
 

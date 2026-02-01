@@ -17,7 +17,12 @@ export function WalletCallbackHandler() {
     if (typeof window === "undefined") return;
 
     const params = new URLSearchParams(window.location.search);
-    if (params.get("wallet_callback") !== "1") return;
+    
+    // If we're NOT on a callback URL, clear any stale pending flag from previous attempts
+    if (params.get("wallet_callback") !== "1") {
+      setCallbackPending(false);
+      return;
+    }
 
     console.log("[WalletCallbackHandler] Processing wallet callback...");
 
