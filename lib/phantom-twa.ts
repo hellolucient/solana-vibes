@@ -52,8 +52,9 @@ export function clearStoredPhantomSession(): void {
 
 /**
  * Generate a keypair and build Phantom connect URL with custom redirect so
- * the callback returns to the TWA. Caller should store the keypair in sessionStorage
- * before navigating so the callback handler can decrypt.
+ * the callback returns to the TWA. Uses phantom:// so the system opens the
+ * Phantom app instead of loading the HTTPS URL inside the TWA (which would
+ * show "install Phantom" in-browser).
  */
 export function buildPhantomConnectUrl(params: {
   appUrl: string;
@@ -69,7 +70,8 @@ export function buildPhantomConnectUrl(params: {
     cluster: params.cluster ?? "mainnet-beta",
   });
 
-  const url = `https://phantom.app/ul/v1/connect?${search.toString()}`;
+  // phantom:// opens the Phantom app; https://phantom.app/ul/... loads in the TWA and shows "install" page
+  const url = `phantom://v1/connect?${search.toString()}`;
 
   return { url, keypair };
 }
