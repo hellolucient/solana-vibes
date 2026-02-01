@@ -232,32 +232,55 @@ export function VibeClaimClient({
       }
 
       // Step 2: Deserialize and sign the transaction
+      console.log("[Claim] Deserializing transaction...");
       const transactionBuffer = Buffer.from(prepareData.transaction, "base64");
       const transaction = VersionedTransaction.deserialize(transactionBuffer);
 
       // User signs as fee payer
-      const signedTransaction = await signTransaction(transaction);
-
-      // Step 3: Send the transaction
-      const signature = await connection.sendRawTransaction(
-        signedTransaction.serialize(),
-        { skipPreflight: false }
-      );
-
-      console.log("Transaction sent:", signature);
-
-      // Step 4: Wait for confirmation
-      const confirmation = await connection.confirmTransaction({
-        signature,
-        blockhash: prepareData.blockhash,
-        lastValidBlockHeight: prepareData.lastValidBlockHeight,
-      });
-
-      if (confirmation.value.err) {
-        throw new Error("Transaction failed on-chain");
+      console.log("[Claim] Requesting wallet signature...");
+      let signedTransaction;
+      try {
+        signedTransaction = await signTransaction(transaction);
+        console.log("[Claim] Transaction signed successfully");
+      } catch (signErr) {
+        console.error("[Claim] Signing failed:", signErr);
+        throw new Error("Wallet signing failed: " + (signErr instanceof Error ? signErr.message : String(signErr)));
       }
 
-      console.log("Transaction confirmed:", signature);
+      // Step 3: Send the transaction
+      console.log("[Claim] Sending transaction to RPC...");
+      let signature: string;
+      try {
+        signature = await connection.sendRawTransaction(
+          signedTransaction.serialize(),
+          { skipPreflight: false }
+        );
+        console.log("[Claim] Transaction sent:", signature);
+      } catch (sendErr) {
+        console.error("[Claim] Send failed:", sendErr);
+        throw new Error("Failed to send transaction: " + (sendErr instanceof Error ? sendErr.message : String(sendErr)));
+      }
+
+      // Step 4: Wait for confirmation
+      console.log("[Claim] Waiting for confirmation...");
+      try {
+        const confirmation = await connection.confirmTransaction({
+          signature,
+          blockhash: prepareData.blockhash,
+          lastValidBlockHeight: prepareData.lastValidBlockHeight,
+        });
+
+        if (confirmation.value.err) {
+          console.error("[Claim] Transaction failed on-chain:", confirmation.value.err);
+          throw new Error("Transaction failed on-chain");
+        }
+        console.log("[Claim] Transaction confirmed:", signature);
+      } catch (confirmErr) {
+        console.error("[Claim] Confirmation failed:", confirmErr);
+        // Transaction might have succeeded but confirmation timed out
+        // Continue to backend confirmation which will verify
+        console.log("[Claim] Proceeding to backend confirmation despite error...");
+      }
 
       // Step 5: Confirm with backend to update database
       const confirmRes = await fetch("/api/vibe/claim/confirm", {
