@@ -104,8 +104,9 @@ export function buildPhantomConnectUrl(params: {
     cluster: params.cluster ?? "mainnet-beta",
   });
 
-  // phantom:// opens the Phantom app; https://phantom.app/ul/... loads in the TWA and shows "install" page
-  const url = `phantom://v1/connect?${search.toString()}`;
+  // Try universal link first - phantom:// scheme might not work on all devices
+  // The TWA should still open Phantom app via the universal link
+  const url = `https://phantom.app/ul/v1/connect?${search.toString()}`;
 
   return { url, keypair };
 }
