@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useWallet, useConnection } from "@solana/wallet-adapter-react";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
@@ -116,6 +117,13 @@ export default function HomePage() {
   const [created, setCreated] = useState<{ vibeId: string; vibeUrl: string; mintAddress: string } | null>(null);
   const [oauthError, setOauthError] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [tapAgainFor, setTapAgainFor] = useState<"wallet" | "twitter" | null>(null);
+  const [vibeStatus, setVibeStatus] = useState<
+    | null
+    | { status: "pending"; vibeId: string; vibeUrl: string; senderWallet: string }
+    | { status: "claimed"; vibeId: string; vibeUrl: string; mintAddress: string; solscanUrl: string }
+    | { status: "none" }
+  >(null);
 
   // Check X connection status and URL errors once on mount
   useEffect(() => {
@@ -149,12 +157,66 @@ export default function HomePage() {
     return () => { cancelled = true; };
   }, []);
 
+  // When X is connected, check if user has a vibe (pending to claim or already claimed)
+  useEffect(() => {
+    if (!xConnected?.username) {
+      setVibeStatus(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const res = await fetch("/api/vibe/pending");
+      const data = await res.json();
+      if (cancelled) return;
+      if (data.hasPending) {
+        setVibeStatus({
+          status: "pending",
+          vibeId: data.vibeId,
+          vibeUrl: data.vibeUrl,
+          senderWallet: data.senderWallet,
+        });
+      } else if (data.hasClaimed && data.mintAddress && data.solscanUrl) {
+        setVibeStatus({
+          status: "claimed",
+          vibeId: data.vibeId,
+          vibeUrl: data.vibeUrl,
+          mintAddress: data.mintAddress,
+          solscanUrl: data.solscanUrl,
+        });
+      } else {
+        setVibeStatus({ status: "none" });
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [xConnected?.username]);
+
+  // Tap-again to disconnect: first tap shows hint, second tap within window performs action
+  useEffect(() => {
+    if (tapAgainFor === null) return;
+    const t = setTimeout(() => setTapAgainFor(null), 3000);
+    return () => clearTimeout(t);
+  }, [tapAgainFor]);
+
   const handleConnectWallet = () => {
     if (connected) {
-      disconnect();
+      if (tapAgainFor === "wallet") {
+        disconnect();
+        setTapAgainFor(null);
+      } else {
+        setTapAgainFor("wallet");
+      }
     } else {
-      // Show the wallet modal - Phantom will be auto-detected via Wallet Standard
       setVisible(true);
+    }
+  };
+
+  const handleXClick = () => {
+    if (!xConnected) return;
+    if (tapAgainFor === "twitter") {
+      setTapAgainFor(null);
+      window.location.href = "/api/auth/x/logout";
+    } else {
+      setTapAgainFor("twitter");
     }
   };
 
@@ -266,9 +328,11 @@ export default function HomePage() {
     <main className="min-h-screen flex flex-col items-center justify-center px-4 py-8">
       <div className="w-full max-w-md">
         {/* Title */}
-        <h1 className="text-2xl font-light tracking-wide text-center text-white/90 mb-2">
-          solana_vibes
-        </h1>
+        <Link href="/" className="block text-center mb-2">
+          <h1 className="text-2xl font-light tracking-wide text-white/90 hover:text-white transition-colors">
+            solana_vibes
+          </h1>
+        </Link>
 
         {/* Vibe Image */}
         <VibeImage />
@@ -292,8 +356,14 @@ export default function HomePage() {
                   className="btn-connect-wallet w-full flex items-center justify-center gap-3 py-4 px-6 rounded-xl text-white font-medium"
                 >
                   <PhantomLogo />
-                  <span>{connected ? `${publicKey?.toBase58().slice(0, 4)}...${publicKey?.toBase58().slice(-4)}` : "Connect wallet"}</span>
-                  {connected && (
+                  <span>
+                    {connected
+                      ? tapAgainFor === "wallet"
+                        ? "Tap again to disconnect"
+                        : `${publicKey?.toBase58().slice(0, 4)}...${publicKey?.toBase58().slice(-4)}`
+                      : "Connect wallet"}
+                  </span>
+                  {connected && tapAgainFor !== "wallet" && (
                     <span className="ml-auto text-vibe-teal">
                       <CheckIcon />
                     </span>
@@ -302,13 +372,21 @@ export default function HomePage() {
 
                 {/* Connect X Button */}
                 {xConnected ? (
-                  <div className="btn-connect-x w-full flex items-center gap-3 py-4 px-6 rounded-xl text-white/80">
+                  <button
+                    type="button"
+                    onClick={handleXClick}
+                    className="btn-connect-x w-full flex items-center gap-3 py-4 px-6 rounded-xl text-white/80 hover:text-white cursor-pointer"
+                  >
                     <XLogo />
-                    <span>@{xConnected.username}</span>
-                    <span className="ml-auto text-vibe-teal">
-                      <CheckIcon />
+                    <span>
+                      {tapAgainFor === "twitter" ? "Tap again to logout" : `@${xConnected.username}`}
                     </span>
-                  </div>
+                    {tapAgainFor !== "twitter" && (
+                      <span className="ml-auto text-vibe-teal">
+                        <CheckIcon />
+                      </span>
+                    )}
+                  </button>
                 ) : (
                   <a
                     href={xAuthUrl}
@@ -317,6 +395,55 @@ export default function HomePage() {
                     <XLogo />
                     <span>Connect X</span>
                   </a>
+                )}
+
+                {/* Vibe status (after X connected): pending, already claimed, or none */}
+                {xConnected && (
+                  <div
+                    className={
+                      vibeStatus === null
+                        ? "p-4 rounded-xl bg-white/5 border border-white/10"
+                        : vibeStatus.status === "pending"
+                          ? "p-4 rounded-xl bg-vibe-teal/10 border border-vibe-teal/30"
+                          : vibeStatus.status === "claimed"
+                            ? "p-4 rounded-xl bg-vibe-blue/10 border border-vibe-blue/30"
+                            : "p-4 rounded-xl bg-white/5 border border-white/10"
+                    }
+                  >
+                    {vibeStatus === null ? (
+                      <p className="text-white/40 text-sm text-center">Checking for vibes...</p>
+                    ) : vibeStatus.status === "pending" ? (
+                      <>
+                        <p className="text-vibe-teal text-sm font-medium text-center mb-1">
+                          You have a vibe waiting for you from {vibeStatus.senderWallet}
+                        </p>
+                        <a
+                          href={vibeStatus.vibeUrl}
+                          className="block text-center text-vibe-teal/90 text-xs underline hover:no-underline mt-2"
+                        >
+                          Claim it →
+                        </a>
+                      </>
+                    ) : vibeStatus.status === "claimed" ? (
+                      <>
+                        <p className="text-[#00D4FF] text-sm font-medium text-center mb-1">
+                          You&apos;ve already been vibed
+                        </p>
+                        <a
+                          href={vibeStatus.solscanUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="block text-center text-vibe-blue/90 text-xs underline hover:no-underline mt-2"
+                        >
+                          View on Solscan →
+                        </a>
+                      </>
+                    ) : (
+                      <p className="text-white/50 text-sm text-center">
+                        Sorry, no vibe for you...yet
+                      </p>
+                    )}
+                  </div>
                 )}
 
                 {/* Send Vibe Section */}

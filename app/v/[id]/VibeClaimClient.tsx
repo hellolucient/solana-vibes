@@ -140,6 +140,7 @@ export function VibeClaimClient({
   const [success, setSuccess] = useState(false);
   const [showClaimFlow, setShowClaimFlow] = useState(false);
   const [claimFeeSol, setClaimFeeSol] = useState<number | null>(null);
+  const [confirmDisconnect, setConfirmDisconnect] = useState(false);
 
   // Check if user is logged in with X
   useEffect(() => {
@@ -168,11 +169,23 @@ export function VibeClaimClient({
 
   const handleConnectWallet = () => {
     if (connected) {
-      disconnect();
+      if (confirmDisconnect) {
+        disconnect();
+        setConfirmDisconnect(false);
+      } else {
+        setConfirmDisconnect(true);
+      }
     } else {
       setVisible(true);
     }
   };
+
+  // Reset "tap again" hint after 3s
+  useEffect(() => {
+    if (!confirmDisconnect) return;
+    const t = setTimeout(() => setConfirmDisconnect(false), 3000);
+    return () => clearTimeout(t);
+  }, [confirmDisconnect]);
 
   const handleClaim = async () => {
     if (!publicKey || !canClaim || !signTransaction) return;
@@ -194,6 +207,13 @@ export function VibeClaimClient({
       const prepareData = await prepareRes.json();
 
       if (!prepareRes.ok) {
+        if (prepareRes.status === 400 && prepareData.error === "This vibe has already been claimed") {
+          setClaimStatus("claimed");
+          if (prepareData.claimerWallet) setClaimerWallet(prepareData.claimerWallet);
+          setError(null);
+          setClaiming(false);
+          return;
+        }
         throw new Error(prepareData.error ?? "Failed to prepare claim");
       }
 
@@ -277,9 +297,11 @@ export function VibeClaimClient({
             <CheckIcon className="w-5 h-5" />
             <span className="font-medium">Claimed</span>
           </div>
-          <p className="text-center text-white/40 text-sm mt-2">
-            by {claimerWallet?.slice(0, 4)}...{claimerWallet?.slice(-4)}
-          </p>
+          {claimerWallet && (
+            <p className="text-center text-white/40 text-sm mt-2">
+              by {claimerWallet.slice(0, 4)}...{claimerWallet.slice(-4)}
+            </p>
+          )}
         </div>
 
         {/* Pay it forward section */}
@@ -361,13 +383,17 @@ export function VibeClaimClient({
             Not you? Sign out
           </a>
         </div>
-      ) : !connected ? (
+      ) : !connected || confirmDisconnect ? (
         <button
           onClick={handleConnectWallet}
           className="flex items-center justify-center gap-3 w-full py-4 px-6 rounded-xl bg-gradient-to-r from-[#120a1a] to-[#0a1210] border border-[rgba(153,69,255,0.3)] text-white font-medium hover:from-[#1a0f24] hover:to-[#0d1815] hover:border-[rgba(153,69,255,0.5)] hover:shadow-[0_0_10px_rgba(153,69,255,0.1)] transition-all"
         >
           <PhantomLogo />
-          <span>Connect wallet</span>
+          <span>
+            {connected && confirmDisconnect
+              ? "Tap again to disconnect"
+              : "Connect wallet"}
+          </span>
         </button>
       ) : claiming ? (
         <div className="py-8 flex flex-col items-center gap-6">
@@ -390,6 +416,13 @@ export function VibeClaimClient({
           <p className="text-center text-white/30 text-xs">
             Claim fee: ~0.001 SOL
           </p>
+          <button
+            type="button"
+            onClick={() => setConfirmDisconnect(true)}
+            className="w-full py-2 text-white/40 hover:text-white/60 text-xs transition-colors"
+          >
+            Disconnect wallet
+          </button>
         </div>
       )}
 

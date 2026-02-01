@@ -114,7 +114,9 @@ export default function GuidePage() {
       <div className="text-center mb-12">
         <div className="relative inline-block mb-4">
           <TitlePulse />
-          <h1 className="text-2xl font-medium text-white relative z-10 px-4">solana_vibes</h1>
+          <Link href="/" className="block">
+            <h1 className="text-2xl font-medium text-white relative z-10 px-4 hover:text-white/90 transition-colors">solana_vibes</h1>
+          </Link>
         </div>
         <p className="text-white/40 text-sm">good vibes, on-chain</p>
       </div>

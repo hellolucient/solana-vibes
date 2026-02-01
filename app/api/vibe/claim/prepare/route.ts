@@ -102,9 +102,19 @@ export async function POST(req: NextRequest) {
     // Verify the NFT is still in the vault
     const inVault = await isVibeInVault(vibe.mintAddress);
     if (!inVault) {
-      await vibeStore.update(vibeId, { claimStatus: "claimed" });
+      const claimedAt = new Date().toISOString();
+      await vibeStore.update(vibeId, {
+        claimStatus: "claimed",
+        claimerWallet,
+        claimedAt,
+      });
       return NextResponse.json(
-        { error: "This vibe has already been claimed" },
+        {
+          error: "This vibe has already been claimed",
+          claimStatus: "claimed",
+          claimerWallet,
+          claimedAt,
+        },
         { status: 400 }
       );
     }

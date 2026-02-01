@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { vibeStore } from "@/lib/storage/supabase";
 import { VibeClaimClient } from "./VibeClaimClient";
@@ -71,9 +72,11 @@ export default async function VibePage({ params }: { params: Promise<{ id: strin
     <main className="min-h-screen bg-[#050505] flex flex-col items-center justify-center p-4">
       <div className="w-full max-w-md">
         {/* Title */}
-        <h1 className="text-2xl font-light tracking-wide text-center text-white/90 mb-4">
-          solana_vibes
-        </h1>
+        <Link href="/" className="block text-center mb-4">
+          <h1 className="text-2xl font-light tracking-wide text-white/90 hover:text-white transition-colors">
+            solana_vibes
+          </h1>
+        </Link>
 
         {/* Vibe Image - The squiggly lines! */}
         <div className="mb-6">

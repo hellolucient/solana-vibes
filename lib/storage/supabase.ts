@@ -95,6 +95,50 @@ export async function getVibeByUsername(username: string): Promise<VibeRecord | 
   return rowToRecord(data as VibeRow);
 }
 
+// Get a pending (unclaimed) vibe for a username, if any (most recent first)
+export async function getPendingVibeByUsername(username: string): Promise<VibeRecord | null> {
+  const normalizedUsername = username.replace(/^@/, "").toLowerCase();
+
+  const { data, error } = await supabase
+    .from("vibes")
+    .select()
+    .ilike("target_username", normalizedUsername)
+    .eq("claim_status", "pending")
+    .not("mint_address", "is", null)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    console.error("[Supabase] getPendingVibeByUsername error:", error);
+    return null;
+  }
+
+  return data ? rowToRecord(data as VibeRow) : null;
+}
+
+// Get the most recent claimed vibe for a username (for "already been vibed" + Solscan link)
+export async function getClaimedVibeByUsername(username: string): Promise<VibeRecord | null> {
+  const normalizedUsername = username.replace(/^@/, "").toLowerCase();
+
+  const { data, error } = await supabase
+    .from("vibes")
+    .select()
+    .ilike("target_username", normalizedUsername)
+    .eq("claim_status", "claimed")
+    .not("mint_address", "is", null)
+    .order("claimed_at", { ascending: false, nullsFirst: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    console.error("[Supabase] getClaimedVibeByUsername error:", error);
+    return null;
+  }
+
+  return data ? rowToRecord(data as VibeRow) : null;
+}
+
 export const vibeStore: IVibeStore = {
   async getNextVibeNumber() {
     // Get the current count of vibes to determine the next number
