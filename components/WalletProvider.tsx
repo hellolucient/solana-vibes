@@ -50,20 +50,19 @@ function WalletDebugger() {
 export function WalletProvider({ children }: { children: React.ReactNode }) {
   const origin = getOrigin();
 
-  // Register Mobile Wallet Adapter so Android (including Solana Seeker) can use
-  // the inbuilt Seed Vault wallet. Required for dApps in Solana Seeker dApp store.
+  // CRITICAL: Register Mobile Wallet Adapter for Android Chrome
+  // This MUST be called in a non-SSR context (client-side only)
+  // Matches Sudoku Clash implementation that works on Seeker
   useEffect(() => {
     if (typeof window === "undefined") return;
 
+    // Check if we're on Android Chrome (same check as Sudoku Clash)
     const isAndroid = /Android/i.test(navigator.userAgent);
-    console.log("[WalletProvider] Platform detection:", { 
-      isAndroid, 
-      userAgent: navigator.userAgent,
-      standalone: window.matchMedia("(display-mode: standalone)").matches
-    });
+    const isChrome = /Chrome/i.test(navigator.userAgent) && !/Edg|OPR|Samsung/i.test(navigator.userAgent);
+    
+    console.log("[WalletProvider] Platform detection:", { isAndroid, isChrome });
 
-    // Register MWA on any Android device (TWAs run in Chrome)
-    if (isAndroid) {
+    if (isAndroid && isChrome) {
       try {
         registerMwa({
           appIdentity: {
@@ -76,10 +75,9 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
           chainSelector: createDefaultChainSelector(),
           onWalletNotFound: createDefaultWalletNotFoundHandler(),
         });
-        console.log("[WalletProvider] Mobile Wallet Adapter registered successfully");
+        console.log("[WalletProvider] Mobile Wallet Adapter registered for Android Chrome");
       } catch (err) {
         console.error("[WalletProvider] Failed to register MWA:", err);
-        alert("[DEBUG] MWA registration error: " + String(err));
       }
     }
   }, [origin]);
@@ -92,21 +90,10 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     return [];
   }, []);
 
-  // Disable autoConnect on Android to let users choose their wallet
-  // MWA handles the connection flow properly
-  const shouldAutoConnect = useMemo(() => {
-    if (typeof window === "undefined") return true;
-    const isAndroid = /Android/i.test(navigator.userAgent);
-    if (isAndroid) {
-      console.log("[WalletProvider] Android detected, autoConnect disabled");
-      return false;
-    }
-    return true;
-  }, []);
-
+  // Enable autoConnect like Sudoku Clash - MWA handles it properly
   return (
     <ConnectionProvider endpoint={endpoint}>
-      <SolanaWalletProvider wallets={wallets} autoConnect={shouldAutoConnect}>
+      <SolanaWalletProvider wallets={wallets} autoConnect>
         <WalletModalProvider>
           <WalletCallbackHandler />
           <WalletDebugger />
