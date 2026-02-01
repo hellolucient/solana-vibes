@@ -92,14 +92,13 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     return [];
   }, []);
 
-  // In TWA: Disable autoConnect - user must tap Connect Wallet button.
-  // This prevents auto-redirecting to Phantom on every load.
-  // The connect() method will restore any stored session when called.
-  // Outside TWA: Always autoConnect (standard wallet behavior).
+  // Disable autoConnect on Android to let users choose their wallet
+  // MWA handles the connection flow properly
   const shouldAutoConnect = useMemo(() => {
     if (typeof window === "undefined") return true;
-    if (isAndroidTWA()) {
-      console.log("[WalletProvider] TWA detected, autoConnect disabled");
+    const isAndroid = /Android/i.test(navigator.userAgent);
+    if (isAndroid) {
+      console.log("[WalletProvider] Android detected, autoConnect disabled");
       return false;
     }
     return true;
