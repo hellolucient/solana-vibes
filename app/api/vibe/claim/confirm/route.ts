@@ -77,22 +77,44 @@ export async function POST(req: NextRequest) {
     });
     console.log(`[vibe/claim/confirm] Transaction sent: ${signature}`);
 
-    // Wait for confirmation
-    console.log(`[vibe/claim/confirm] Waiting for confirmation...`);
-    const confirmation = await connection.confirmTransaction({
-      signature,
-      blockhash,
-      lastValidBlockHeight,
-    }, "confirmed");
-
-    if (confirmation.value.err) {
-      console.error(`[vibe/claim/confirm] Transaction failed:`, confirmation.value.err);
-      return NextResponse.json(
-        { error: "Transaction failed on-chain" },
-        { status: 500 }
-      );
+    // Wait for confirmation using polling (WebSocket doesn't work in serverless)
+    console.log(`[vibe/claim/confirm] Waiting for confirmation (polling)...`);
+    const maxRetries = 30;
+    const retryDelay = 1000; // 1 second
+    
+    for (let i = 0; i < maxRetries; i++) {
+      const statuses = await connection.getSignatureStatuses([signature]);
+      const status = statuses.value[0];
+      
+      if (status) {
+        if (status.err) {
+          console.error(`[vibe/claim/confirm] Transaction failed:`, status.err);
+          return NextResponse.json(
+            { error: "Transaction failed on-chain" },
+            { status: 500 }
+          );
+        }
+        
+        if (status.confirmationStatus === "confirmed" || status.confirmationStatus === "finalized") {
+          console.log(`[vibe/claim/confirm] Transaction confirmed: ${signature}`);
+          break;
+        }
+      }
+      
+      // Check if blockhash expired
+      const blockHeight = await connection.getBlockHeight();
+      if (blockHeight > lastValidBlockHeight) {
+        console.error(`[vibe/claim/confirm] Blockhash expired`);
+        return NextResponse.json(
+          { error: "Transaction expired - please try again" },
+          { status: 500 }
+        );
+      }
+      
+      // Wait before next poll
+      await new Promise(resolve => setTimeout(resolve, retryDelay));
     }
-
+    
     console.log(`[vibe/claim/confirm] Transaction confirmed: ${signature}`);
 
     // Update the database
