@@ -45,3 +45,9 @@ authority.json
 mainnet-authority.json
 treasury-keypair.json
 *-keypair.json
+
+# Android TWA (keystore + built APKs; never commit)
+android/android.keystore
+android/keystore.properties
+android/releases/
+android/local.properties

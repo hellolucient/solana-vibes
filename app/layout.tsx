@@ -15,6 +15,9 @@ export const metadata: Metadata = {
     template: "%s | solana_vibes",
   },
   description: "Send vibes on Solana",
+  manifest: "/manifest.json",
+  themeColor: "#9945FF",
+  viewport: { width: "device-width", initialScale: 1 },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -1,0 +1,41 @@
+{
+  "packageId": "com.solanavibes.app",
+  "host": "your-production-domain.com",
+  "name": "Solana Vibes",
+  "launcherName": "Solana Vibes",
+  "display": "standalone",
+  "themeColor": "#9945FF",
+  "themeColorDark": "#050505",
+  "navigationColor": "#050505",
+  "navigationColorDark": "#050505",
+  "navigationDividerColor": "#050505",
+  "navigationDividerColorDark": "#050505",
+  "backgroundColor": "#050505",
+  "enableNotifications": true,
+  "startUrl": "/",
+  "iconUrl": "https://your-production-domain.com/media/vibe_icon.png",
+  "maskableIconUrl": "https://your-production-domain.com/media/vibe_icon.png",
+  "splashScreenFadeOutDuration": 300,
+  "signingKey": {
+    "path": "android.keystore",
+    "alias": "android"
+  },
+  "appVersionName": "1",
+  "appVersionCode": 1,
+  "shortcuts": [],
+  "generatorApp": "bubblewrap-cli",
+  "webManifestUrl": "https://your-production-domain.com/manifest.json",
+  "fallbackType": "customtabs",
+  "features": {
+    "locationDelegation": {
+      "enabled": false
+    }
+  },
+  "minSdkVersion": 21,
+  "orientation": "portrait",
+  "fingerprints": [
+    {
+      "sha256Fingerprint": "AA:BB:CC:DD:EE:FF:11:22:33:44:55:66:77:88:99:00:AA:BB:CC:DD:EE:FF:11:22:33:44:55:66:77:88:99:00"
+    }
+  ]
+}

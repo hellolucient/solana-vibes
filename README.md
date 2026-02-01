@@ -82,6 +82,16 @@ Uses Supabase with a `vibes` table:
 | claimed_at | timestamp | When claimed |
 | created_at | timestamp | When created |
 
+## Solana dApp Store (Seeker / TWA)
+
+To ship this app to the **Solana dApp Store** (Seeker device) as an Android TWA:
+
+1. Deploy the web app to HTTPS and set `NEXT_PUBLIC_APP_URL` to that URL.
+2. In **`android/twa-manifest.json`** replace `your-production-domain.com` with your real host.
+3. Follow **`android/README.md`**: create keystore, get SHA-256 fingerprint, update `public/.well-known/assetlinks.json` and `android/twa-manifest.json`, run Bubblewrap `init`, build and sign APK, then submit via Solana dApp Store.
+
+See `cursor-rules/twa-deployment-rules.md` for the full TWA/assetlinks guide.
+
 ## Scripts
 
 ```bash
