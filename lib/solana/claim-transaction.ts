@@ -53,11 +53,13 @@ export async function buildClaimTransaction({
   const newOwner = publicKey(claimerWallet);
 
   // Build transfer instruction
-  // Authority must be specified since they own the asset
+  // Authority must sign since they own the asset
+  // Payer is claimer so they pay any rent costs
   const transferBuilder = transfer(umi, {
     asset,
     newOwner,
     authority: authority,
+    payer: claimerSigner,
   });
 
   // Build micro-fee transfer to treasury
