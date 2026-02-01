@@ -15,6 +15,7 @@ const STORAGE_KEYPAIR = "phantom_twa_dapp_keypair";
 const STORAGE_SESSION = "phantom_twa_session";
 const STORAGE_PUBLIC_KEY = "phantom_twa_public_key";
 const STORAGE_PHANTOM_PUBKEY = "phantom_twa_phantom_pubkey";
+const STORAGE_CALLBACK_PENDING = "phantom_twa_callback_pending";
 
 export function isAndroidTWA(): boolean {
   if (typeof window === "undefined") return false;
@@ -26,11 +27,42 @@ export function isAndroidTWA(): boolean {
   return isAndroid && isStandalone;
 }
 
+/**
+ * Check if we're in the middle of a wallet callback (to prevent autoConnect from
+ * triggering another connection while we're processing the return from Phantom).
+ */
+export function isWalletCallbackPending(): boolean {
+  if (typeof window === "undefined") return false;
+  // Check URL for wallet_callback param
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("wallet_callback") === "1") return true;
+  // Check storage flag (set before redirect to Phantom)
+  try {
+    return sessionStorage.getItem(STORAGE_CALLBACK_PENDING) === "1";
+  } catch {
+    return false;
+  }
+}
+
+export function setCallbackPending(pending: boolean): void {
+  if (typeof window === "undefined") return;
+  try {
+    if (pending) {
+      sessionStorage.setItem(STORAGE_CALLBACK_PENDING, "1");
+    } else {
+      sessionStorage.removeItem(STORAGE_CALLBACK_PENDING);
+    }
+  } catch {
+    // ignore
+  }
+}
+
 export function getStoredPhantomSession(): { publicKey: string; session: string } | null {
   if (typeof window === "undefined") return null;
   try {
-    const pk = sessionStorage.getItem(STORAGE_PUBLIC_KEY);
-    const session = sessionStorage.getItem(STORAGE_SESSION);
+    // Use localStorage for persistence across app restarts (sessionStorage clears on close)
+    const pk = localStorage.getItem(STORAGE_PUBLIC_KEY);
+    const session = localStorage.getItem(STORAGE_SESSION);
     if (pk && session) return { publicKey: pk, session };
   } catch {
     // ignore
@@ -41,10 +73,12 @@ export function getStoredPhantomSession(): { publicKey: string; session: string 
 export function clearStoredPhantomSession(): void {
   if (typeof window === "undefined") return;
   try {
-    sessionStorage.removeItem(STORAGE_PUBLIC_KEY);
-    sessionStorage.removeItem(STORAGE_SESSION);
-    sessionStorage.removeItem(STORAGE_KEYPAIR);
-    sessionStorage.removeItem(STORAGE_PHANTOM_PUBKEY);
+    localStorage.removeItem(STORAGE_PUBLIC_KEY);
+    localStorage.removeItem(STORAGE_SESSION);
+    localStorage.removeItem(STORAGE_PHANTOM_PUBKEY);
+    localStorage.removeItem(STORAGE_KEYPAIR);
+    sessionStorage.removeItem(STORAGE_CALLBACK_PENDING);
+    console.log("[phantom-twa] Session cleared");
   } catch {
     // ignore
   }
@@ -83,26 +117,33 @@ export function storeKeypairForCallback(keypair: { publicKey: Uint8Array; secret
       publicKey: Array.from(keypair.publicKey),
       secretKey: Array.from(keypair.secretKey),
     });
-    sessionStorage.setItem(STORAGE_KEYPAIR, raw);
-  } catch {
-    // ignore
+    // Use localStorage so keypair persists even if TWA process is killed while in Phantom
+    localStorage.setItem(STORAGE_KEYPAIR, raw);
+    console.log("[phantom-twa] Keypair stored for callback");
+  } catch (err) {
+    console.error("[phantom-twa] Failed to store keypair:", err);
   }
 }
 
 function getStoredKeypair(): nacl.BoxKeyPair | null {
   if (typeof window === "undefined") return null;
   try {
-    const raw = sessionStorage.getItem(STORAGE_KEYPAIR);
-    if (!raw) return null;
+    const raw = localStorage.getItem(STORAGE_KEYPAIR);
+    if (!raw) {
+      console.log("[phantom-twa] No stored keypair found");
+      return null;
+    }
     const { publicKey, secretKey } = JSON.parse(raw) as {
       publicKey: number[];
       secretKey: number[];
     };
+    console.log("[phantom-twa] Keypair retrieved from storage");
     return {
       publicKey: new Uint8Array(publicKey),
       secretKey: new Uint8Array(secretKey),
     };
-  } catch {
+  } catch (err) {
+    console.error("[phantom-twa] Failed to retrieve keypair:", err);
     return null;
   }
 }
@@ -118,15 +159,30 @@ export function decryptPhantomCallback(params: {
   errorCode?: string;
   errorMessage?: string;
 }): { publicKey: string; session: string; phantomEncryptionPublicKey: string } | null {
-  if (params.errorCode) return null;
+  console.log("[phantom-twa] decryptPhantomCallback called");
+  
+  if (params.errorCode) {
+    console.error("[phantom-twa] Phantom returned error:", params.errorCode, params.errorMessage);
+    return null;
+  }
 
   const phantomPubKey = params.phantom_encryption_public_key;
   const nonceB58 = params.nonce;
   const dataB58 = params.data;
-  if (!phantomPubKey || !nonceB58 || !dataB58) return null;
+  if (!phantomPubKey || !nonceB58 || !dataB58) {
+    console.error("[phantom-twa] Missing required params:", { 
+      hasPhantomPubKey: !!phantomPubKey, 
+      hasNonce: !!nonceB58, 
+      hasData: !!dataB58 
+    });
+    return null;
+  }
 
   const keypair = getStoredKeypair();
-  if (!keypair) return null;
+  if (!keypair) {
+    console.error("[phantom-twa] No keypair found - was it lost when navigating to Phantom?");
+    return null;
+  }
 
   try {
     const phantomPub = bs58.decode(phantomPubKey);
@@ -135,22 +191,31 @@ export function decryptPhantomCallback(params: {
 
     const sharedSecret = nacl.scalarMult(keypair.secretKey, phantomPub);
     const decrypted = nacl.secretbox.open(ciphertext, nonce, sharedSecret);
-    if (!decrypted) return null;
+    if (!decrypted) {
+      console.error("[phantom-twa] Failed to decrypt - shared secret mismatch");
+      return null;
+    }
 
     const json = new TextDecoder().decode(decrypted);
     const payload = JSON.parse(json) as { public_key?: string; session?: string };
     const publicKey = payload.public_key;
     const session = payload.session;
-    if (!publicKey || !session) return null;
+    if (!publicKey || !session) {
+      console.error("[phantom-twa] Missing publicKey or session in decrypted payload");
+      return null;
+    }
 
+    console.log("[phantom-twa] Successfully decrypted callback for", publicKey);
     return { publicKey, session, phantomEncryptionPublicKey: phantomPubKey };
-  } catch {
+  } catch (err) {
+    console.error("[phantom-twa] Decryption error:", err);
     return null;
   }
 }
 
 /**
  * Store Phantom session after successful callback so the adapter can use it.
+ * Uses localStorage for persistence across app restarts.
  * Does NOT remove the dapp keypair so we can use it for signTransaction/signMessage.
  */
 export function storePhantomSession(
@@ -160,17 +225,21 @@ export function storePhantomSession(
 ): void {
   if (typeof window === "undefined") return;
   try {
-    sessionStorage.setItem(STORAGE_PUBLIC_KEY, publicKey);
-    sessionStorage.setItem(STORAGE_SESSION, session);
-    sessionStorage.setItem(STORAGE_PHANTOM_PUBKEY, phantomEncryptionPublicKey);
-  } catch {
-    // ignore
+    // Use localStorage for persistence across app restarts
+    localStorage.setItem(STORAGE_PUBLIC_KEY, publicKey);
+    localStorage.setItem(STORAGE_SESSION, session);
+    localStorage.setItem(STORAGE_PHANTOM_PUBKEY, phantomEncryptionPublicKey);
+    // Clear the pending flag since we've successfully connected
+    sessionStorage.removeItem(STORAGE_CALLBACK_PENDING);
+    console.log("[phantom-twa] Session stored successfully for", publicKey);
+  } catch (err) {
+    console.error("[phantom-twa] Failed to store session:", err);
   }
 }
 
 export function getPhantomSession(): string | null {
   if (typeof window === "undefined") return null;
-  return sessionStorage.getItem(STORAGE_SESSION);
+  return localStorage.getItem(STORAGE_SESSION);
 }
 
 /** Full session data needed for signing (includes dapp keypair + Phantom's key). */
@@ -180,8 +249,8 @@ export function getPhantomSessionForSigning(): {
   phantomPublicKeyBase58: string;
 } | null {
   if (typeof window === "undefined") return null;
-  const session = sessionStorage.getItem(STORAGE_SESSION);
-  const phantomPub = sessionStorage.getItem(STORAGE_PHANTOM_PUBKEY);
+  const session = localStorage.getItem(STORAGE_SESSION);
+  const phantomPub = localStorage.getItem(STORAGE_PHANTOM_PUBKEY);
   const kp = getStoredKeypair();
   if (!session || !phantomPub || !kp) return null;
   return { session, dappKeypair: kp, phantomPublicKeyBase58: phantomPub };

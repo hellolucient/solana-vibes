@@ -18,6 +18,8 @@ import {
   clearStoredPhantomSession,
   getStoredPhantomSession,
   isAndroidTWA,
+  isWalletCallbackPending,
+  setCallbackPending,
   storeKeypairForCallback,
 } from "@/lib/phantom-twa";
 
@@ -38,14 +40,27 @@ export class PhantomTwaAdapter extends BaseWalletAdapter<"Phantom (in-app)"> {
     super();
     if (typeof window !== "undefined" && isAndroidTWA()) {
       this._readyState = WalletReadyState.Installed;
+      
+      // Check if we're returning from Phantom callback - don't restore session yet,
+      // let WalletCallbackHandler process the callback first
+      if (isWalletCallbackPending()) {
+        console.log("[PhantomTwaAdapter] Callback pending, skipping session restore");
+        return;
+      }
+      
       const stored = getStoredPhantomSession();
       if (stored) {
         try {
           this._publicKey = new SolanaPublicKey(stored.publicKey);
-          this.emit("connect", this._publicKey);
-        } catch {
+          console.log("[PhantomTwaAdapter] Restored session for", stored.publicKey);
+          // Don't emit connect here - the wallet adapter library will check publicKey
+          // and recognize we're already connected
+        } catch (err) {
+          console.error("[PhantomTwaAdapter] Failed to restore session:", err);
           clearStoredPhantomSession();
         }
+      } else {
+        console.log("[PhantomTwaAdapter] No stored session found");
       }
     }
   }
@@ -63,9 +78,21 @@ export class PhantomTwaAdapter extends BaseWalletAdapter<"Phantom (in-app)"> {
   }
 
   async connect(): Promise<void> {
-    if (this._connecting || this._publicKey) return;
+    console.log("[PhantomTwaAdapter] connect() called, publicKey:", this._publicKey?.toBase58(), "connecting:", this._connecting);
+    
+    if (this._connecting || this._publicKey) {
+      console.log("[PhantomTwaAdapter] Already connected or connecting, skipping");
+      return;
+    }
+    
     if (!isAndroidTWA()) {
       this.emit("error", new WalletError("Phantom (in-app) is only available in the Android app"));
+      return;
+    }
+
+    // If we're in the middle of processing a callback, don't redirect again
+    if (isWalletCallbackPending()) {
+      console.log("[PhantomTwaAdapter] Callback pending, not redirecting to Phantom");
       return;
     }
 
@@ -79,10 +106,16 @@ export class PhantomTwaAdapter extends BaseWalletAdapter<"Phantom (in-app)"> {
         cluster: "mainnet-beta",
       });
       storeKeypairForCallback(keypair);
+      
+      // Mark that we're waiting for a callback so we don't loop
+      setCallbackPending(true);
+      
+      console.log("[PhantomTwaAdapter] Redirecting to Phantom:", url);
       window.location.href = url;
       // Page will navigate away; when user returns, callback handler will store session
       // and we'll pick it up on next load via getStoredPhantomSession in constructor.
     } catch (err) {
+      setCallbackPending(false);
       this.emit("error", err instanceof WalletError ? err : new WalletError(String(err), err));
     } finally {
       this._connecting = false;
