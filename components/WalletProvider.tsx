@@ -68,7 +68,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
           appIdentity: {
             name: "Solana Vibes",
             uri: origin,
-            icon: `${origin}/media/vibe_icon.png`,
+            icon: "/media/vibe_icon.png",  // Must be relative URI
           },
           authorizationCache: createDefaultAuthorizationCache(),
           chains: ["solana:mainnet", "solana:devnet"],
