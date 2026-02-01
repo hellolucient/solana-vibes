@@ -219,6 +219,26 @@ export default function HomePage() {
     }
   };
 
+  // Direct connect bypass - for debugging
+  const handleDirectPhantomConnect = async () => {
+    console.log("🔴 Direct Phantom connect clicked");
+    alert("Direct connect clicked! Wallets: " + wallets.map(w => w.adapter.name).join(", "));
+    
+    // Find Phantom adapter and call connect directly
+    const phantomWallet = wallets.find(w => w.adapter.name === "Phantom (in-app)");
+    if (phantomWallet) {
+      alert("Found Phantom adapter, calling connect()...");
+      try {
+        await phantomWallet.adapter.connect();
+        alert("connect() completed");
+      } catch (err) {
+        alert("connect() error: " + String(err));
+      }
+    } else {
+      alert("Phantom (in-app) adapter not found! Available: " + wallets.map(w => w.adapter.name).join(", "));
+    }
+  };
+
   const handleXClick = () => {
     if (!xConnected) return;
     if (tapAgainFor === "twitter") {
@@ -382,6 +402,16 @@ export default function HomePage() {
                 {/* No wallet on mobile (e.g. iOS Safari) — show Open in Phantom / Get Phantom */}
                 {showNoWalletHelp && (
                   <NoWalletConnectHelp onClose={() => setShowNoWalletHelp(false)} />
+                )}
+
+                {/* DEBUG: Direct connect button to bypass wallet modal */}
+                {!connected && (
+                  <button
+                    onClick={handleDirectPhantomConnect}
+                    className="w-full py-3 px-6 rounded-xl bg-purple-600 text-white font-medium text-sm"
+                  >
+                    DEBUG: Direct Phantom Connect
+                  </button>
                 )}
 
                 {/* Connect X Button */}
