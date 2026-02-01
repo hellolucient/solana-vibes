@@ -158,7 +158,14 @@
                 />
             </intent-filter>
 
-            
+            <!-- Wallet callback: Phantom and other wallets redirect here after connect/sign.
+                 Without this, HTTPS redirects open in the browser and the TWA never receives the callback. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="solanavibes" android:host="callback" />
+            </intent-filter>
 
             
         </activity>

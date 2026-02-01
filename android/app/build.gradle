@@ -21,7 +21,7 @@ plugins {
 def twaManifest = [
     applicationId: 'app.vercel.solana_vibes.twa',
     hostName: 'solana-vibes.vercel.app', // The domain being opened in the TWA.
-    launchUrl: 'https://solana-vibes.vercel.app/', // The start path for the TWA. Must be relative to the domain.
+    launchUrl: '/', // The start path for the TWA. Must be relative to the domain.
     name: 'Solana Vibes', // The application name.
     launcherName: 'Solana Vibes', // The name shown on the Android Launcher.
     themeColor: '#050505', // The color used for the status bar.

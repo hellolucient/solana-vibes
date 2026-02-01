@@ -92,6 +92,22 @@ To ship this app to the **Solana dApp Store** (Seeker device) as an Android TWA:
 
 See `cursor-rules/twa-deployment-rules.md` for the full TWA/assetlinks guide.
 
+**Wallet connection in the TWA:** Phantom (and similar wallets) redirect back to the app using a custom scheme (`solanavibes://callback`) so the callback returns to the TWA instead of the browser. In the app, when you tap "Connect wallet", choose **"Phantom (in-app)"** (not the standard "Phantom" entry) so the redirect comes back into the app and the connection completes. The standard Phantom entry uses an HTTPS redirect which opens in the browser and does not return to the app.
+
+### Deploy / release flow (TWA + The Cell)
+
+1. **Rebuild the TWA** (from repo root):
+   ```bash
+   cd android && ./gradlew clean assembleRelease
+   ```
+   Signed APK: `android/app/build/outputs/apk/release/app-release.apk` (when `android/keystore.properties` is set).
+
+2. **Deploy to Git** – push changes; The Cell (or your CI) builds and deploys the web app.
+
+3. **Promote to production** – so the live site serves the latest web app (including wallet callback handling).
+
+4. **Reinstall the APK** on the Android device – install the new APK from step 1 (e.g. sideload or download from your build artifacts).
+
 ## Scripts
 
 ```bash

@@ -44,11 +44,18 @@ public class LauncherActivity
 
     @Override
     protected Uri getLaunchingUrl() {
-        // Get the original launch Url.
-        Uri uri = super.getLaunchingUrl();
-
-        
-
-        return uri;
+        // If we were launched via wallet callback (e.g. Phantom redirect to solanavibes://callback?...),
+        // forward the query params to our origin so the web app can complete the connection.
+        Uri intentData = getIntent() != null ? getIntent().getData() : null;
+        if (intentData != null && "solanavibes".equals(intentData.getScheme())
+                && "callback".equals(intentData.getHost())) {
+            String query = intentData.getQuery();
+            if (query != null && !query.isEmpty()) {
+                String baseUrl = getString(R.string.launchUrl);
+                String sep = baseUrl.contains("?") ? "&" : "?";
+                return Uri.parse(baseUrl + sep + "wallet_callback=1&" + query);
+            }
+        }
+        return super.getLaunchingUrl();
     }
 }
