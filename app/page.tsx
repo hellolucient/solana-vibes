@@ -219,24 +219,10 @@ export default function HomePage() {
     }
   };
 
-  // Direct connect bypass - for debugging
-  const handleDirectPhantomConnect = async () => {
-    console.log("🔴 Direct Phantom connect clicked");
-    alert("Direct connect clicked! Wallets: " + wallets.map(w => w.adapter.name).join(", "));
-    
-    // Find Phantom adapter and call connect directly
-    const phantomWallet = wallets.find(w => w.adapter.name === "Phantom (in-app)");
-    if (phantomWallet) {
-      alert("Found Phantom adapter, calling connect()...");
-      try {
-        await phantomWallet.adapter.connect();
-        alert("connect() completed");
-      } catch (err) {
-        alert("connect() error: " + String(err));
-      }
-    } else {
-      alert("Phantom (in-app) adapter not found! Available: " + wallets.map(w => w.adapter.name).join(", "));
-    }
+  // Debug: Show available wallets
+  const handleDebugWallets = () => {
+    const walletNames = wallets.map(w => `${w.adapter.name} (${w.readyState})`).join(", ");
+    alert("Available wallets: " + (walletNames || "None from wallets array - check MWA registration"));
   };
 
   const handleXClick = () => {
@@ -404,13 +390,13 @@ export default function HomePage() {
                   <NoWalletConnectHelp onClose={() => setShowNoWalletHelp(false)} />
                 )}
 
-                {/* DEBUG: Direct connect button to bypass wallet modal */}
+                {/* DEBUG: Show available wallets */}
                 {!connected && (
                   <button
-                    onClick={handleDirectPhantomConnect}
+                    onClick={handleDebugWallets}
                     className="w-full py-3 px-6 rounded-xl bg-purple-600 text-white font-medium text-sm"
                   >
-                    DEBUG: Direct Phantom Connect
+                    DEBUG: Show Wallets
                   </button>
                 )}
 

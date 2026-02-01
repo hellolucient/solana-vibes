@@ -10,8 +10,9 @@ import {
   registerMwa,
 } from "@solana-mobile/wallet-standard-mobile";
 import "@solana/wallet-adapter-react-ui/styles.css";
-import { isAndroidTWA } from "@/lib/phantom-twa";
-import { PhantomTwaAdapter } from "@/components/PhantomTwaAdapter";
+// PhantomTwaAdapter disabled - using MWA instead
+// import { isAndroidTWA } from "@/lib/phantom-twa";
+// import { PhantomTwaAdapter } from "@/components/PhantomTwaAdapter";
 import { WalletCallbackHandler } from "@/components/WalletCallbackHandler";
 
 const endpoint = process.env.NEXT_PUBLIC_SOLANA_RPC ?? "https://api.devnet.solana.com";
@@ -55,9 +56,14 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     if (typeof window === "undefined") return;
 
     const isAndroid = /Android/i.test(navigator.userAgent);
-    const isChrome = /Chrome/i.test(navigator.userAgent) && !/Edg|OPR|Samsung/i.test(navigator.userAgent);
+    console.log("[WalletProvider] Platform detection:", { 
+      isAndroid, 
+      userAgent: navigator.userAgent,
+      standalone: window.matchMedia("(display-mode: standalone)").matches
+    });
 
-    if (isAndroid && isChrome) {
+    // Register MWA on any Android device (TWAs run in Chrome)
+    if (isAndroid) {
       try {
         registerMwa({
           appIdentity: {
@@ -70,22 +76,19 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
           chainSelector: createDefaultChainSelector(),
           onWalletNotFound: createDefaultWalletNotFoundHandler(),
         });
-        console.log("[WalletProvider] Mobile Wallet Adapter registered (Android/Seeker)");
+        console.log("[WalletProvider] Mobile Wallet Adapter registered successfully");
       } catch (err) {
         console.error("[WalletProvider] Failed to register MWA:", err);
+        alert("[DEBUG] MWA registration error: " + String(err));
       }
     }
   }, [origin]);
 
-  // In Android TWA, Phantom's HTTPS redirect opens in the browser instead of the app.
-  // We add PhantomTwaAdapter which uses a custom scheme (solanavibes://callback) so
-  // the redirect comes back to the TWA. User should choose "Phantom (in-app)" in the modal.
-  // MWA adds Seed Vault on Android/Seeker. Wallet Standard auto-detects other wallets.
+  // For now, rely on MWA (Mobile Wallet Adapter) instead of custom PhantomTwaAdapter.
+  // MWA should handle Phantom, Seed Vault, and other wallets on Seeker/Android.
+  // TODO: Re-enable PhantomTwaAdapter if MWA doesn't work for Phantom in TWA.
   const wallets = useMemo(() => {
-    if (typeof window !== "undefined" && isAndroidTWA()) {
-      console.log("[WalletProvider] Creating PhantomTwaAdapter for TWA");
-      return [new PhantomTwaAdapter()];
-    }
+    console.log("[WalletProvider] Using MWA-only mode (no custom adapters)");
     return [];
   }, []);
 
