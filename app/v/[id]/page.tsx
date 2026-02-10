@@ -6,11 +6,6 @@ import { VibeClaimClient } from "./VibeClaimClient";
 
 const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
 
-function getFallbackImageUrl(id: string): string {
-  // Fallback for vibes without stored imageUri
-  return baseUrl ? `${baseUrl}/media/vibes/${id}.png` : `/media/vibes/${id}.png`;
-}
-
 export async function generateMetadata({
   params,
 }: {
@@ -18,38 +13,36 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { id } = await params;
   const vibe = await vibeStore.getById(id);
-  // Use stored imageUri if available, otherwise fallback
-  // Add stable cache key based on vibe update time
-  const rawImageUrl = vibe?.imageUri || getFallbackImageUrl(id);
-  const cacheKey = vibe?.createdAt ? new Date(vibe.createdAt).getTime() : id;
-  const imageUrl = rawImageUrl.includes('?') 
-    ? `${rawImageUrl}&v=${cacheKey}` 
-    : `${rawImageUrl}?v=${cacheKey}`;
-  
+
+  // Static OG image hosted on our own domain for reliable X card rendering
+  const imageUrl = `${baseUrl}/og-vibes.png`;
+
   // Code-style title for Twitter card
-  const cardTitle = ">_";
-  
+  const cardTitle = vibe
+    ? `solana_vibes for @${vibe.targetUsername}`
+    : ">_";
+
   return {
     title: cardTitle,
     description: cardTitle,
-    openGraph: { 
-      title: cardTitle, 
+    openGraph: {
+      title: cardTitle,
       description: cardTitle,
-      siteName: cardTitle,
+      siteName: "solana_vibes",
       images: [{
         url: imageUrl,
-        width: 1200,
-        height: 630,
-        alt: cardTitle,
+        width: 1536,
+        height: 1024,
+        alt: "solana_vibes",
       }],
     },
-    twitter: { 
-      card: "summary_large_image", 
-      title: cardTitle, 
+    twitter: {
+      card: "summary_large_image",
+      title: cardTitle,
       description: cardTitle,
       images: [{
         url: imageUrl,
-        alt: cardTitle,
+        alt: "solana_vibes",
       }],
     },
   };
@@ -80,9 +73,9 @@ export default async function VibePage({ params }: { params: Promise<{ id: strin
 
         {/* Vibe Image - The squiggly lines! */}
         <div className="mb-6">
-          <img 
-            src={vibeImageUrl} 
-            alt="Vibe" 
+          <img
+            src={vibeImageUrl}
+            alt="Vibe"
             className="w-full rounded-xl"
           />
         </div>
