@@ -54,13 +54,20 @@ export async function GET(req: NextRequest) {
 
     console.log(`[OAuth1] Successfully authenticated @${accessToken.screen_name}`);
 
-    // Store user info in cookie (no API call needed!)
+    // Store user info in cookie (this is all we need - no API calls!)
     const userInfo = JSON.stringify({
       id: accessToken.user_id,
       username: accessToken.screen_name,
     });
 
-    const res = NextResponse.redirect(new URL(returnTo, req.url));
+    // If redirecting to app deep link, append username so app doesn't need /me
+    const isAppDeepLink = returnTo.startsWith("solanavibes://");
+    const redirectUrl =
+      isAppDeepLink && accessToken.screen_name
+        ? `${returnTo}${returnTo.includes("?") ? "&" : "?"}username=${encodeURIComponent(accessToken.screen_name)}`
+        : returnTo;
+
+    const res = NextResponse.redirect(new URL(redirectUrl, req.url));
 
     // Set user cookie (this is all we need - no API calls!)
     res.cookies.set(X_USER_COOKIE, userInfo, {
